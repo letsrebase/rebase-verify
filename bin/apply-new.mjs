@@ -50,6 +50,7 @@ import { computeAiRelationship } from "../src/ai-relationship.mjs";
 import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
+import { computeTechUsage } from "../src/tech-usage.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -152,7 +153,7 @@ async function loadProfileInputs(out) {
   const forensics = computeForensics(parsed);
 
   console.log(`[3/5] Deep digest + per-repo clustering (PII redacted: ${parsed.redaction.hits}) ...`);
-  const digest = buildDigest(parsed);
+  const digest = buildDigest(parsed, { tz });
   const projects = selectRepresentatives(digest.projects, flag("top") ? +flag("top") : "auto");
   const selected = projects.filter((p) => p.selected);
   console.log(`      ${digest.projectCount} products, ${selected.length}${flag("top") ? "" : " (adaptive 3-5)"} representative: ${selected.map((p) => `${p.repo}[${p.type[0]}]`).join(", ")}`);
@@ -165,8 +166,9 @@ async function loadProfileInputs(out) {
   const agenticLiteracy = computeAgenticLiteracy(parsed);
   const intensity = computeIntensity(parsed, { tz });
   const distribution = computeDistribution(projects);
+  const techUsage = computeTechUsage(projects, { tz });
   const sources = summarizeSources(parsed);
-  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources, out };
+  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources, out };
 }
 
 function resolveContact() {
@@ -191,7 +193,7 @@ function writeProfile(out, profile) {
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\napply-new generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
   const { contact, errors } = resolveContact();
   if (errors.length) {
     console.error("\nMissing contact fields:");
@@ -221,7 +223,7 @@ async function cmdGenerate() {
 
   console.log(`[5/5] Assembling and saving ...\n`);
   writeProfile(out, assembleWithGroundedness({
-    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -267,7 +269,7 @@ async function cmdFinalize() {
     console.error(`Missing ${narrativeFile}. Run apply-new prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
   const { contact, errors } = resolveContact();
   if (errors.length) {
     console.error("\nMissing contact fields:");
@@ -285,7 +287,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -346,11 +348,13 @@ async function cmdSubmit() {
     // Re-derive from the SAME source mix the profile was generated from
     // (see sourceFlags()'s comment for why this must never drift).
     const parsed = readAllSources({ claudeRoot: root, sources: sourceFlags() });
-    const digest = buildDigest(parsed);
-    // Re-derive day-based intensity in the zone the profile RECORDED — never
-    // the machine zone — so the comparison measures the data, not the bucketing.
+    // Re-derive day-based intensity and tech-usage months in the zone the
+    // profile RECORDED — never the machine zone — so the comparison measures
+    // the data, not the bucketing.
+    const digest = buildDigest(parsed, { tz: profile.techUsage?.timezone || profile.intensity?.timezone || DEFAULT_TZ });
     const intensity = computeIntensity(parsed, { tz: profile.intensity?.timezone || DEFAULT_TZ });
-    const logs = assessAgainstLogs(profile, digest.projects, { intensity });
+    const techUsage = computeTechUsage(digest.projects, { tz: profile.techUsage?.timezone || DEFAULT_TZ });
+    const logs = assessAgainstLogs(profile, digest.projects, { intensity, techUsage });
     issues.push(...logs.issues);
     excessClaims = logs.excessClaims || 0;
     for (const w of logs.warnings) console.log(`  ~ ${w}`);

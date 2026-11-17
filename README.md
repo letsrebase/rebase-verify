@@ -38,11 +38,11 @@ The tool reads every supported agent CLI it finds on your machine and folds them
 | [![cursor-agent](https://img.shields.io/badge/cursor--agent-555?logo=cursor&logoColor=white)](https://cursor.com/cli) | `~/.cursor/chats` (sqlite; needs Node 22.5+, otherwise read as empty and disclosed) | `--no-cursor` | structural |
 | ![kimi-code](https://img.shields.io/badge/kimi--code-555?logo=moonshotai&logoColor=white) | `~/.kimi-code/sessions` | `--no-kimi` | structural |
 
-Every source normalizes into the same session model, so all six lenses below read them identically. Each `--<source>-root <dir>` flag overrides the default location. What never gets opened per source (credential files, config, telemetry) is enumerated in [PRIVACY.md](PRIVACY.md). Gemini CLI and ChatGPT / Claude.ai exports are on the roadmap.
+Every source normalizes into the same session model, so all seven lenses below read them identically. Each `--<source>-root <dir>` flag overrides the default location. What never gets opened per source (credential files, config, telemetry) is enumerated in [PRIVACY.md](PRIVACY.md). Gemini CLI and ChatGPT / Claude.ai exports are on the roadmap.
 
 ## What we look at
 
-Six lenses, all built from your logs.
+Seven lenses, all built from your logs.
 
 **What you work on.** Three to five fields of work, derived from the evidence of every product in your logs (type of work, stack, code areas, research topics). Each domain carries a count of products and sessions, never a name: "talent operations, 8 products, 14 sessions".
 
@@ -53,6 +53,8 @@ Six lenses, all built from your logs.
 **How deeply Claude is your practice.** Active days over the observed window, median sessions per active day, session depth, longest streak, peak day. The difference between *daily driver, deep sessions* and *occasional, short bursts on specific tasks*.
 
 **How you spread your work.** Sessions per product, concentration on your top products, products carried across months. Two sessions each across twenty products reads as portfolio steering; nine sessions each across nine products reads as sustained building. Both are legitimate shapes, and they match different projects.
+
+**How long you have used each technology.** For every technology the stack detection saw (always a public label such as Supabase or Playwright, never a repo, client or private package name), how many sessions, products and distinct calendar months it appears in, and the first and last month. A plain-language band labels the month counts: *continuous* (6+ months, and present in at least 75% of the months between its first and last), *recurring* (3+ months), *occasional* (1 to 2 months). The thresholds are empirical, like the cognitive-tag ones, and the band is a label for the counts printed next to it, never a score. The stack is detected per product, so the session count means "sessions in products where the technology was detected", an upper bound on sessions that touched it. Months are bucketed in the same `--tz` as the day counts, and no model is involved.
 
 **How fluent you are in the agentic stack.** Three axes: what you use (sub-agents, MCP servers, slash commands you invoke), what you build (skills, commands, hooks, the `CLAUDE.md` files you maintain), and how you organise work (planning, subtask tracking, clarifying before assuming). All counts. Custom MCP servers and custom skills are counted but never named (they can carry client information).
 

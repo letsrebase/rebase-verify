@@ -20,6 +20,8 @@
 // stance as the authenticity score. The durable backstop is the intake
 // re-computing groundedness and structure on the received JSON.
 
+import { bandFor, monthSpan } from "./tech-usage.mjs";
+
 export function assessStructure(profile) {
   const issues = [];
   const projects = profile?.projects ?? [];
@@ -86,6 +88,28 @@ export function assessStructure(profile) {
     if (o.delegation != null && p.metrics?.delegation != null && Number(o.delegation) !== Number(p.metrics.delegation)) {
       issues.push(`${p.id}: metrics.delegation is ${p.metrics.delegation} but orchestration.delegation says ${o.delegation}`);
     }
+  }
+
+  // Tech-usage invariants (block is optional). Each row's band must re-derive
+  // from its own counts, counts must be internally possible, and no technology
+  // can be in more products or sessions than the profile has.
+  const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const seenTech = new Set();
+  for (const t of profile?.techUsage?.technologies ?? []) {
+    const w = `techUsage.${t?.name}`;
+    if (seenTech.has(t?.name)) issues.push(`${w}: listed more than once`);
+    seenTech.add(t?.name);
+    if (!MONTH_RE.test(t?.firstMonth ?? "") || !MONTH_RE.test(t?.lastMonth ?? "") || t.firstMonth > t.lastMonth) {
+      issues.push(`${w}: months window ${t?.firstMonth}..${t?.lastMonth} is not a valid range`);
+      continue;
+    }
+    if (!(t.months >= 1) || t.months > monthSpan(t.firstMonth, t.lastMonth)) {
+      issues.push(`${w}: ${t.months} months cannot fit between ${t.firstMonth} and ${t.lastMonth}`);
+    }
+    if (t.band !== bandFor(t)) issues.push(`${w}: band is "${t.band}" but its counts derive "${bandFor(t)}"`);
+    if (vol.products != null && t.products > vol.products) issues.push(`${w}: ${t.products} products but the profile has ${vol.products}`);
+    if (vol.sessions != null && t.sessions > vol.sessions) issues.push(`${w}: ${t.sessions} sessions but the profile has ${vol.sessions}`);
+    if (t.products > t.sessions) issues.push(`${w}: ${t.products} products but only ${t.sessions} sessions`);
   }
 
   const auth = profile?.authenticity?.score;
@@ -212,6 +236,28 @@ export function assessAgainstLogs(profile, digestProjects, opts = {}) {
     }
     if ((Number(claimed.longestStreak) || 0) > (derived.longestStreak || 0)) {
       excess(`profile claims a ${claimed.longestStreak}-day streak but the logs re-derive ${derived.longestStreak}`);
+    }
+  }
+
+  // Tech usage, same one-directional gate: a claimed technology must exist in
+  // the re-derivation (in the recorded timezone) and every count may only be
+  // at or below it; the first month cannot be earlier nor the last later.
+  // Absence has a second innocent cause: stack detection reads dependency
+  // manifests as they are NOW, so a repo moved or deleted since generation
+  // changes detection. The message names it; the remedy is to regenerate.
+  const derivedTech = new Map((opts.techUsage?.technologies ?? []).map((t) => [t.name, t]));
+  if (profile?.techUsage && opts.techUsage !== undefined) {
+    for (const c of profile.techUsage.technologies ?? []) {
+      const d = derivedTech.get(c.name);
+      if (!d) {
+        excess(`techUsage.${c.name}: claimed but the logs re-derive no such technology (stack detection reads repos as they are now, so a moved or deleted repo can change it: regenerate)`);
+        continue;
+      }
+      for (const k of ["sessions", "products", "months"]) {
+        if ((Number(c[k]) || 0) > d[k]) excess(`techUsage.${c.name}: claims ${c[k]} ${k}, logs re-derive ${d[k]}`);
+      }
+      if (c.firstMonth < d.firstMonth) excess(`techUsage.${c.name}: claims first month ${c.firstMonth}, logs re-derive ${d.firstMonth}`);
+      if (c.lastMonth > d.lastMonth) excess(`techUsage.${c.name}: claims last month ${c.lastMonth}, logs re-derive ${d.lastMonth}`);
     }
   }
 

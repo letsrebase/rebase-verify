@@ -29,3 +29,10 @@ export function activeDayKeys(timestamps, tz = DEFAULT_TZ) {
   for (const t of timestamps) if (Number.isFinite(t)) days.add(key(t));
   return days;
 }
+
+// Month key (YYYY-MM) in an explicit timezone: the first seven characters of
+// the day key, so months and days always bucket the same way for the same --tz.
+export function monthKeyFor(tz = DEFAULT_TZ) {
+  const key = dayKeyFor(tz);
+  return (ts) => key(ts).slice(0, 7);
+}
