@@ -18,8 +18,9 @@
 //   --name "Giulia" --email g@x.io --city Milano --status freelance
 //   --top 4                        # force the number of representative projects
 //                                  # (default: adaptive, 3 to 5)
-//   --tz Europe/Rome               # timezone for day-based counts (activeDays,
-//                                  # streak). Default UTC; recorded in the profile.
+//   --tz Europe/Rome               # timezone for day and month counts (activeDays,
+//                                  # streak, technology-usage months). Default UTC;
+//                                  # recorded in the profile.
 //   --narrative-file narrative.json
 //   --endpoint https://...         # override PLAYNEW_INTAKE_URL for submit
 //
@@ -50,7 +51,7 @@ import { computeAiRelationship } from "../src/ai-relationship.mjs";
 import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
-import { computeTechUsage } from "../src/tech-usage.mjs";
+import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -351,9 +352,10 @@ async function cmdSubmit() {
     // Re-derive day-based intensity and tech-usage months in the zone the
     // profile RECORDED — never the machine zone — so the comparison measures
     // the data, not the bucketing.
-    const digest = buildDigest(parsed, { tz: profile.techUsage?.timezone || profile.intensity?.timezone || DEFAULT_TZ });
+    const techTz = recordedTechUsageTz(profile);
+    const digest = buildDigest(parsed, { tz: techTz });
     const intensity = computeIntensity(parsed, { tz: profile.intensity?.timezone || DEFAULT_TZ });
-    const techUsage = computeTechUsage(digest.projects, { tz: profile.techUsage?.timezone || DEFAULT_TZ });
+    const techUsage = computeTechUsage(digest.projects, { tz: techTz });
     const logs = assessAgainstLogs(profile, digest.projects, { intensity, techUsage });
     issues.push(...logs.issues);
     excessClaims = logs.excessClaims || 0;

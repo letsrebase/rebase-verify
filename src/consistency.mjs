@@ -21,6 +21,8 @@
 // re-computing groundedness and structure on the received JSON.
 
 import { bandFor, monthSpan } from "./tech-usage.mjs";
+import { labelVocabulary } from "./digest.mjs";
+import { isValidTimezone } from "./days.mjs";
 
 export function assessStructure(profile) {
   const issues = [];
@@ -95,8 +97,23 @@ export function assessStructure(profile) {
   // can be in more products or sessions than the profile has.
   const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
   const seenTech = new Set();
-  for (const t of profile?.techUsage?.technologies ?? []) {
+  const vocabulary = new Set(labelVocabulary());
+  const tu = profile?.techUsage;
+  if (tu != null) {
+    if (!Array.isArray(tu.technologies)) issues.push("techUsage.technologies is not a list");
+    if (!isValidTimezone(tu.timezone)) issues.push(`techUsage.timezone "${tu.timezone}" is not a valid IANA timezone`);
+    else if (profile?.intensity?.timezone && profile.intensity.timezone !== tu.timezone) {
+      issues.push(`techUsage.timezone is ${tu.timezone} but intensity.timezone is ${profile.intensity.timezone}: one generation uses one zone`);
+    }
+  }
+  for (const t of Array.isArray(tu?.technologies) ? tu.technologies : []) {
     const w = `techUsage.${t?.name}`;
+    // Names come only from the detector's fixed vocabulary. Anything else could
+    // be a client or private name, so it is blocked here (works without logs).
+    if (typeof t?.name !== "string" || !vocabulary.has(t.name)) {
+      issues.push(`techUsage: "${t?.name}" is not a technology label the stack detection can emit`);
+      continue;
+    }
     if (seenTech.has(t?.name)) issues.push(`${w}: listed more than once`);
     seenTech.add(t?.name);
     if (!MONTH_RE.test(t?.firstMonth ?? "") || !MONTH_RE.test(t?.lastMonth ?? "") || t.firstMonth > t.lastMonth) {
@@ -239,25 +256,31 @@ export function assessAgainstLogs(profile, digestProjects, opts = {}) {
     }
   }
 
-  // Tech usage, same one-directional gate: a claimed technology must exist in
-  // the re-derivation (in the recorded timezone) and every count may only be
-  // at or below it; the first month cannot be earlier nor the last later.
-  // Absence has a second innocent cause: stack detection reads dependency
-  // manifests as they are NOW, so a repo moved or deleted since generation
-  // changes detection. The message names it; the remedy is to regenerate.
+  // Tech usage, same one-directional gate, split by what the logs can prove.
+  // HARD (excess claims): the month window. The first month must equal the
+  // re-derived one, the last cannot be later, and the claimed month count must
+  // fit the re-derived months up to the claimed last month. A narrowed window
+  // (a later first month) would otherwise turn a short history into
+  // "continuous", so equality is required, not just <=.
+  // WARNINGS: what depends on the disk NOW. Stack detection reads dependency
+  // manifests as they are today, so a moved or deleted repo can remove a
+  // technology or lower its session/product counts with unchanged logs. Those
+  // deltas are reported, never block; regenerating clears them.
   const derivedTech = new Map((opts.techUsage?.technologies ?? []).map((t) => [t.name, t]));
-  if (profile?.techUsage && opts.techUsage !== undefined) {
-    for (const c of profile.techUsage.technologies ?? []) {
-      const d = derivedTech.get(c.name);
+  if (Array.isArray(profile?.techUsage?.technologies) && opts.techUsage !== undefined) {
+    for (const c of profile.techUsage.technologies) {
+      const d = derivedTech.get(c?.name);
       if (!d) {
-        excess(`techUsage.${c.name}: claimed but the logs re-derive no such technology (stack detection reads repos as they are now, so a moved or deleted repo can change it: regenerate)`);
+        warnings.push(`techUsage.${c?.name}: the logs no longer re-derive this technology (stack detection reads repos as they are now, so a moved or deleted repo can change it: regenerate to refresh)`);
         continue;
       }
-      for (const k of ["sessions", "products", "months"]) {
-        if ((Number(c[k]) || 0) > d[k]) excess(`techUsage.${c.name}: claims ${c[k]} ${k}, logs re-derive ${d[k]}`);
-      }
-      if (c.firstMonth < d.firstMonth) excess(`techUsage.${c.name}: claims first month ${c.firstMonth}, logs re-derive ${d.firstMonth}`);
+      if (c.firstMonth !== d.firstMonth) excess(`techUsage.${c.name}: claims first month ${c.firstMonth}, logs re-derive ${d.firstMonth}`);
       if (c.lastMonth > d.lastMonth) excess(`techUsage.${c.name}: claims last month ${c.lastMonth}, logs re-derive ${d.lastMonth}`);
+      const fitting = (d.monthList ?? []).filter((m) => m <= c.lastMonth).length;
+      if ((Number(c.months) || 0) > fitting) excess(`techUsage.${c.name}: claims ${c.months} months up to ${c.lastMonth}, logs re-derive ${fitting}`);
+      for (const k of ["sessions", "products"]) {
+        if ((Number(c[k]) || 0) > d[k]) warnings.push(`techUsage.${c.name}: claims ${k === "sessions" ? c[k] + " sessions" : c[k] + " products"}, logs now re-derive ${d[k]} (detection reads repos as they are now)`);
+      }
     }
   }
 

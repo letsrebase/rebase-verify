@@ -28,7 +28,7 @@
 // stack used all year reads differently from one touched in a single sprint.
 // They are not calibrated against outcomes and say nothing about skill.
 
-import { DEFAULT_TZ } from "./days.mjs";
+import { DEFAULT_TZ, isValidTimezone } from "./days.mjs";
 
 export const BAND_CONTINUOUS_MIN_MONTHS = 6;
 export const BAND_CONTINUOUS_MIN_COVERAGE = 0.75;
@@ -68,9 +68,21 @@ export function computeTechUsage(projects, { tz = DEFAULT_TZ } = {}) {
     .map((t) => {
       const ms = [...t.monthSet].sort();
       const row = { name: t.name, sessions: t.sessions, products: t.products, months: ms.length, firstMonth: ms[0], lastMonth: ms.at(-1) };
-      return { ...row, band: bandFor(row) };
+      const out = { ...row, band: bandFor(row) };
+      // The sorted month list backs the submit-time window check. Non-enumerable
+      // so it never reaches candidate.json or the payload.
+      Object.defineProperty(out, "monthList", { value: ms, enumerable: false });
+      return out;
     })
     .sort((a, b) => b.sessions - a.sessions || b.months - a.months || a.name.localeCompare(b.name));
   if (!technologies.length) return null;
   return { timezone: tz, technologies };
+}
+
+// The zone the submit-time re-derivation must bucket months in: the one the
+// profile recorded, never the machine's. An absent or invalid recorded zone
+// falls back to UTC (an invalid one is reported separately by assessStructure).
+export function recordedTechUsageTz(profile) {
+  const tz = profile?.techUsage?.timezone;
+  return isValidTimezone(tz) ? tz : DEFAULT_TZ;
 }

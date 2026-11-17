@@ -3,8 +3,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeTechUsage, bandFor } from "../src/tech-usage.mjs";
-import { buildDigest, labelVocabulary } from "../src/digest.mjs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { computeTechUsage, bandFor, recordedTechUsageTz } from "../src/tech-usage.mjs";
+import { generateNarrative } from "../src/profile-llm.mjs";
+import { buildDigest, detectStack, labelVocabulary } from "../src/digest.mjs";
 import { assessStructure, assessAgainstLogs } from "../src/consistency.mjs";
 import { assessGroundedness } from "../src/groundedness.mjs";
 import { assembleProfile, renderMarkdown } from "../src/profile.mjs";
@@ -18,15 +22,15 @@ const proj = (tech, sessions, ms) => ({ tech, sessions, months: ms });
 
 test("counts sessions, products and distinct months per technology across all products", () => {
   const u = computeTechUsage([
-    proj(["Supabase", "React"], 10, ["2026-01", "2026-02"]),
+    proj(["Supabase", "Zod"], 10, ["2026-01", "2026-02"]),
     proj(["Supabase"], 4, ["2026-02", "2026-04"]),
     proj([], 3, ["2026-05"]),
   ]);
   const s = u.technologies.find((t) => t.name === "Supabase");
   assert.deepEqual(s, { name: "Supabase", sessions: 14, products: 2, months: 3, firstMonth: "2026-01", lastMonth: "2026-04", band: "recurring" });
-  assert.equal(u.technologies.find((t) => t.name === "React").sessions, 10);
+  assert.equal(u.technologies.find((t) => t.name === "Zod").sessions, 10);
   assert.equal(u.timezone, "UTC");
-  assert.deepEqual(u.technologies.map((t) => t.name), ["Supabase", "React"]); // sessions desc
+  assert.deepEqual(u.technologies.map((t) => t.name), ["Supabase", "Zod"]); // sessions desc
 });
 
 test("returns null when no technology was detected", () => {
@@ -48,7 +52,7 @@ test("band thresholds: occasional < 3 months <= recurring; continuous needs 6 mo
 });
 
 test("a technology seen only in months-less products is not reported", () => {
-  assert.equal(computeTechUsage([proj(["React"], 5, [])]), null);
+  assert.equal(computeTechUsage([proj(["Zod"], 5, [])]), null);
 });
 
 test("digest buckets months in the requested timezone, like days", () => {
@@ -58,10 +62,67 @@ test("digest buckets months in the requested timezone, like days", () => {
   assert.deepEqual(buildDigest(parsed, { tz: "Europe/Rome" }).projects[0].months, ["2026-04"]);
 });
 
-test("every name that can appear comes from the detector's fixed vocabulary", () => {
-  const vocab = new Set(labelVocabulary());
-  const u = computeTechUsage([proj([...vocab], 2, ["2026-01"])]);
-  for (const t of u.technologies) assert.ok(vocab.has(t.name));
+test("real detection path: private package names never surface, only vocabulary labels", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tech-usage-"));
+  try {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({
+      name: "acme-client-portal",
+      dependencies: { "@acme/internal-billing": "1.0.0", zod: "3.0.0", "acme-secret-sdk": "2.0.0" },
+    }));
+    const tech = detectStack({ cwdRaw: dir, exts: {}, cmdsText: "" });
+    assert.ok(tech.includes("Zod"), tech.join(","));
+    const u = computeTechUsage([{ tech, sessions: 3, months: ["2026-01"] }]);
+    const vocab = new Set(labelVocabulary());
+    assert.ok(u.technologies.length >= 1);
+    for (const t of u.technologies) assert.ok(vocab.has(t.name), t.name);
+    const wire = JSON.stringify(u);
+    assert.ok(!/acme|internal-billing/i.test(wire), wire);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("structure: a name outside the detector vocabulary is blocked, with or without logs", () => {
+  const p = { volume: { products: 3, sessions: 20 }, techUsage: { timezone: "UTC", technologies: [
+    { name: "acme-billing-core", sessions: 5, products: 1, months: 1, firstMonth: "2026-01", lastMonth: "2026-01", band: "occasional" },
+    { name: 42, sessions: 5, products: 1, months: 1, firstMonth: "2026-01", lastMonth: "2026-01", band: "occasional" },
+  ] } };
+  const issues = assessStructure(p).issues.filter((i) => i.startsWith("techUsage"));
+  assert.equal(issues.length, 2, issues.join("\n"));
+});
+
+test("structure: malformed block is an issue, not a throw", () => {
+  assert.ok(assessStructure({ techUsage: { timezone: "UTC", technologies: "Zod" } }).issues.some((i) => i.includes("not a list")));
+  assert.ok(assessStructure({ techUsage: { timezone: "Mars/Olympus", technologies: [] } }).issues.some((i) => i.includes("not a valid IANA")));
+});
+
+test("structure: techUsage and intensity must record the same zone", () => {
+  const p = { techUsage: { timezone: "Europe/Rome", technologies: [] }, intensity: { timezone: "UTC" } };
+  assert.ok(assessStructure(p).issues.some((i) => i.includes("one generation uses one zone")));
+  p.intensity.timezone = "Europe/Rome";
+  assert.deepEqual(assessStructure(p).issues, []);
+});
+
+test("submit wiring: months re-derive in the RECORDED zone; invalid or absent zone falls back to UTC", () => {
+  const parsed = { source: "claude-code", sessions: [sess("claude-code", "acme-app", [], { ts: "2026-03-31T23:30:00.000Z" })] };
+  const rederive = (profile) => buildDigest(parsed, { tz: recordedTechUsageTz(profile) }).projects[0].months;
+  assert.deepEqual(rederive({ techUsage: { timezone: "Europe/Rome" } }), ["2026-04"]);
+  assert.deepEqual(rederive({ techUsage: { timezone: "Mars/Olympus" } }), ["2026-03"]);
+  assert.deepEqual(rederive({}), ["2026-03"]);
+});
+
+test("months and techUsage never reach the narrative input", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tech-usage-narr-"));
+  try {
+    const f = join(dir, "n.json");
+    writeFileSync(f, JSON.stringify({ summary: "s", cognitive: { narrative: "c" }, projects: [] }));
+    const p = { ...baseProj, months: ["2026-01", "2026-02"], topAreas: {}, learningTopics: [], promptSamples: [] };
+    const { input } = await generateNarrative([p], [{}], { overrideFile: f, allProjects: [p] });
+    const wire = JSON.stringify(input);
+    assert.ok(!wire.includes('"months"') && !wire.includes("techUsage") && !wire.includes("2026-02"), wire);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // --- profile wiring ----------------------------------------------------------
@@ -70,7 +131,7 @@ const usage = () => ({
   timezone: "UTC",
   technologies: [
     { name: "Supabase", sessions: 14, products: 2, months: 7, firstMonth: "2026-01", lastMonth: "2026-08", band: "continuous" },
-    { name: "React", sessions: 6, products: 1, months: 2, firstMonth: "2026-02", lastMonth: "2026-03", band: "occasional" },
+    { name: "Zod", sessions: 6, products: 1, months: 2, firstMonth: "2026-02", lastMonth: "2026-03", band: "occasional" },
   ],
 });
 const baseProj = { repo: "acme-app", cwdRaw: "", type: ["feature-work"], from: "2026-01", to: "2026-08", sessions: 14, userMessages: 30, tech: ["Supabase"], landing: { commits: 1, reverts: 0, revertChurn: "low", checksRun: false }, selected: true };
@@ -86,7 +147,7 @@ test("profile.md renders the block deterministically, with the zone when not UTC
   const md = renderMarkdown(profile);
   assert.ok(md.includes("## Technology usage"));
   assert.ok(md.includes("- Supabase: continuous · 14 sessions · 2 products · 7 months (2026-01 to 2026-08)"), md);
-  assert.ok(md.includes("- React: occasional · 6 sessions · 1 product · 2 months (2026-02 to 2026-03)"), md);
+  assert.ok(md.includes("- Zod: occasional · 6 sessions · 1 product · 2 months (2026-02 to 2026-03)"), md);
   profile.techUsage.timezone = "Europe/Rome";
   assert.ok(renderMarkdown(profile).includes("months counted in Europe/Rome"));
   profile.techUsage = null;
@@ -103,7 +164,7 @@ test("structure: an honest block passes; a band that does not match its counts i
   assert.deepEqual(assessStructure(prof()).issues.filter((i) => i.startsWith("techUsage")), []);
   const p = prof();
   p.techUsage.technologies[1].band = "continuous";
-  assert.ok(assessStructure(p).issues.some((i) => i.includes("techUsage.React") && i.includes("band")));
+  assert.ok(assessStructure(p).issues.some((i) => i.includes("techUsage.Zod") && i.includes("band")));
 });
 
 test("structure: impossible counts are caught", () => {
@@ -115,31 +176,64 @@ test("structure: impossible counts are caught", () => {
   assert.ok(issues.includes("99 sessions"), issues);
 });
 
-test("logs: claims at or below the re-derivation pass; inflated ones are excess claims", () => {
-  const derived = usage();
-  assert.deepEqual(assessAgainstLogs(prof(), [], { techUsage: derived }).issues.filter((i) => i.startsWith("techUsage")), []);
+// Re-derivation built through the real computeTechUsage so the month list is real.
+const derive = (rows) => computeTechUsage(rows.flatMap((r) => Array.from({ length: r.products ?? 1 }, (_, i) =>
+  proj([r.name], i === 0 ? r.sessions - ((r.products ?? 1) - 1) : 1, r.months))));
+const SUPA_MONTHS = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-08"];
+const REACT_MONTHS = ["2026-02", "2026-03"];
+const logsDerived = () => derive([
+  { name: "Supabase", sessions: 14, products: 2, months: SUPA_MONTHS },
+  { name: "Zod", sessions: 6, months: REACT_MONTHS },
+]);
+const techIssues = (r) => r.issues.filter((i) => i.startsWith("techUsage"));
 
-  const p = prof();
-  p.techUsage.technologies[0].months = 8;
-  p.techUsage.technologies[0].sessions = 20;
-  p.techUsage.technologies[1].firstMonth = "2025-12";
-  p.techUsage.technologies[1].lastMonth = "2026-05";
-  const r = assessAgainstLogs(p, [], { techUsage: derived });
-  const t = r.issues.filter((i) => i.startsWith("techUsage")).join("\n");
-  assert.ok(t.includes("claims 8 months"), t);
-  assert.ok(t.includes("claims 20 sessions"), t);
-  assert.ok(t.includes("first month 2025-12"), t);
-  assert.ok(t.includes("last month 2026-05"), t);
-  assert.equal(r.issues.filter((i) => i.startsWith("techUsage")).length, 4);
+test("logs: an honest claim passes with no issues and no warnings", () => {
+  const r = assessAgainstLogs(prof(), [], { techUsage: logsDerived() });
+  assert.deepEqual(techIssues(r), []);
+  assert.deepEqual(r.warnings.filter((w) => w.startsWith("techUsage")), []);
 });
 
-test("logs: a technology the logs do not re-derive is an excess claim; a smaller re-derivation (pruned logs) flags the surplus", () => {
+test("logs: inflated month windows are blocking excess claims", () => {
   const p = prof();
-  const derived = { timezone: "UTC", technologies: [{ name: "Supabase", sessions: 9, products: 2, months: 7, firstMonth: "2026-01", lastMonth: "2026-08", band: "continuous" }] };
+  p.techUsage.technologies[0].months = 8; // logs have 7 up to 2026-08
+  p.techUsage.technologies[1].firstMonth = "2025-12"; // earlier than the logs
+  p.techUsage.technologies[1].lastMonth = "2026-05"; // later than the logs
+  const r = assessAgainstLogs(p, [], { techUsage: logsDerived() });
+  const t = techIssues(r).join("\n");
+  assert.ok(t.includes("claims 8 months"), t);
+  assert.ok(t.includes("first month 2025-12"), t);
+  assert.ok(t.includes("last month 2026-05"), t);
+  assert.equal(techIssues(r).length, 3, t);
+  assert.ok(r.excessClaims >= 3);
+});
+
+test("logs: a NARROWED window cannot turn a recurring history into continuous", () => {
+  // Logs: 6 months spread over 2026-01..2026-12 = recurring (6/12 coverage).
+  const spread = ["2026-01", "2026-03", "2026-05", "2026-07", "2026-09", "2026-12"];
+  const derived = derive([{ name: "Supabase", sessions: 12, months: spread }]);
+  assert.equal(derived.technologies[0].band, "recurring");
+  // Claim: the same 6 months but a window starting 2026-07: coverage 100%.
+  const claim = { name: "Supabase", sessions: 12, products: 1, months: 6, firstMonth: "2026-07", lastMonth: "2026-12", band: "continuous" };
+  assert.equal(bandFor(claim), "continuous"); // internally consistent, so structure passes...
+  const p = { volume: { products: 3, sessions: 20 }, techUsage: { timezone: "UTC", technologies: [claim] } };
+  assert.deepEqual(assessStructure(p).issues.filter((i) => i.startsWith("techUsage")), []);
+  // ...but the logs refuse it: first month differs, and only 3 months fit by 2026-12 from the claim's view.
+  const t = techIssues(assessAgainstLogs(p, [], { techUsage: derived })).join("\n");
+  assert.ok(t.includes("claims first month 2026-07"), t);
+  // Same first month but too many months for the window is flagged on `months`.
+  const c2 = { ...claim, firstMonth: "2026-01", lastMonth: "2026-09", months: 6 };
+  const t2 = techIssues(assessAgainstLogs({ ...p, techUsage: { timezone: "UTC", technologies: [c2] } }, [], { techUsage: derived })).join("\n");
+  assert.ok(t2.includes("claims 6 months up to 2026-09, logs re-derive 5"), t2);
+});
+
+test("logs: disk-dependent deltas are warnings, not blockers", () => {
+  const p = prof();
+  const derived = derive([{ name: "Supabase", sessions: 9, months: SUPA_MONTHS }]);
   const r = assessAgainstLogs(p, [], { techUsage: derived });
-  const t = r.issues.join("\n");
-  assert.ok(t.includes("techUsage.React: claimed but the logs re-derive no such technology"), t);
-  assert.ok(t.includes("claims 14 sessions, logs re-derive 9"), t);
+  assert.deepEqual(techIssues(r), []);
+  const w = r.warnings.join("\n");
+  assert.ok(w.includes("techUsage.Zod: the logs no longer re-derive this technology"), w);
+  assert.ok(w.includes("claims 14 sessions, logs now re-derive 9"), w);
 });
 
 test("logs: no check without a claimed block, or without a re-derivation", () => {
@@ -165,9 +259,9 @@ test("groundedness: the new counts and months support prose that cites them, and
 });
 
 test("groundedness: a technology only in techUsage still grounds its name", () => {
-  const p = { ...prof(), projects: [], summary: "Worked with React for 2 months, 6 sessions, 14 sessions overall." };
+  const p = { ...prof(), projects: [], summary: "Worked with Zod for 2 months, 6 sessions, 14 sessions overall." };
   const g = assessGroundedness(p);
   assert.ok(!g.anomalies.some((a) => a.kind === "tech"), JSON.stringify(g.anomalies));
   const without = { ...p, techUsage: null };
-  assert.ok(assessGroundedness(without).anomalies.some((a) => a.anchor.toLowerCase() === "react"));
+  assert.ok(assessGroundedness(without).anomalies.some((a) => a.anchor.toLowerCase() === "zod"));
 });
