@@ -7,7 +7,7 @@
 // no attachments, so a project artifact must be a link.
 
 import { readFileSync, existsSync } from "node:fs";
-import { resolveHub, signIn } from "./hub.mjs";
+import { resolveHub, signIn, USER_AGENT } from "./hub.mjs";
 
 // The exact JSON that leaves the machine, as one pure step — shared by the
 // real POST and `submit --dry-run`, so what the candidate inspects IS what is
@@ -43,7 +43,7 @@ export async function submitProfile(profilePath, { hub, fetchFn = fetch, ...flow
   try {
     res = await fetchFn(`${base}/api/hub/work-profiles`, {
       method: "POST",
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, "user-agent": USER_AGENT },
       body: form,
     });
   } catch (e) {

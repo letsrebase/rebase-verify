@@ -235,3 +235,11 @@ test("submitProfile: a thrown fetch on the intake says to run submit again and s
   const { fetchFn } = scriptedHub([json(200, { access_token: "tok" })], { intake: () => { throw new Error("socket hang up"); } });
   await assert.rejects(submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts }), /run submit again and sign in anew/);
 });
+
+test("every request carries User-Agent work-profile/<package version>", async () => {
+  const { version } = JSON.parse((await import("node:fs")).readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const { fetchFn, calls } = scriptedHub([json(200, { access_token: "tok" })]);
+  await submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts });
+  assert.equal(calls.length, 3);
+  for (const c of calls) assert.equal(c.init.headers["user-agent"], `work-profile/${version}`, c.url);
+});

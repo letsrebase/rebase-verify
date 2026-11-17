@@ -5,6 +5,11 @@
 // profile and is spent by it, so there is nothing to store and nothing to revoke.
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+
+// The hub reads the tool version from this header on every request.
+const { version: TOOL_VERSION } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+export const USER_AGENT = `work-profile/${TOOL_VERSION}`;
 
 export const DEFAULT_HUB = "https://letsrebase.com";
 export const PREVIEW_HUB = "https://preview.letsrebase.com";
@@ -59,7 +64,7 @@ const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 async function postJson(fetchFn, url, body) {
   const res = await fetchFn(url, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json", "user-agent": USER_AGENT },
     body: JSON.stringify(body),
   });
   const parsed = await res.json().catch(() => null);
