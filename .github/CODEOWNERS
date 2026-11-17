@@ -1,11 +1,12 @@
-# Maintainers review everything.
-* @rinaldofesta @matteoroversi
+# This fork's maintainers review everything. Upstream's own owners are in
+# Play-New/apply-new and review what we propose there (AGENTS.md).
+* @fiorelorenzo
 
 # Trust surfaces — changes here affect what a profile can claim.
 # Treat with extra care in review (see CONTRIBUTING.md, "Schema discipline").
-/src/forensics.mjs    @rinaldofesta @matteoroversi
-/src/groundedness.mjs @rinaldofesta @matteoroversi
-/src/consistency.mjs  @rinaldofesta @matteoroversi
-/src/redact.mjs       @rinaldofesta @matteoroversi
-/src/submit.mjs       @rinaldofesta @matteoroversi
-/docs/adr/            @rinaldofesta @matteoroversi
+/src/forensics.mjs    @fiorelorenzo
+/src/groundedness.mjs @fiorelorenzo
+/src/consistency.mjs  @fiorelorenzo
+/src/redact.mjs       @fiorelorenzo
+/src/submit.mjs       @fiorelorenzo
+/docs/adr/            @fiorelorenzo
