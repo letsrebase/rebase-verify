@@ -1,6 +1,6 @@
 > **This is `letsrebase/work-profile`, a fork of [Play-New/apply-new](https://github.com/Play-New/apply-new)** by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
 >
-> **Do not submit from this fork yet.** Everything below is still the upstream text, and `submit` still sends to Play New. The rebase recipient lands in a later change, and this notice will say so.
+> **Do not submit from this fork yet.** Everything below is still the upstream text and describes Play New's intake: `submit` still sends to Play New, and the privacy terms, the no-ranking commitment and the contact links are Play New's, not rebase's. rebase's own terms replace them when the rebase recipient lands, and this notice will say so. `CONTRIBUTING.md` is Play New's process for the original; this fork's maintainer is in `.github/CODEOWNERS`.
 
 # Apply New
 
