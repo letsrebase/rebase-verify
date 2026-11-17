@@ -10,7 +10,7 @@ This document explains what we do with the data you choose to send.
 
 ## 1. Who we are
 
-**Data controller:** Humancraft di Ivan Sala, VAT IT 14518240966, the controller named in [rebase's privacy notice](https://letsrebase.com/privacy), which also covers the rest of letsrebase.com.
+**Data controller:** Rebase S.r.l., Via Podgora 11, 20122 Milano (MI), Italy; VAT and tax code IT 14971460960; REA MI-2819107; PEC [rebase.srl@legalmail.it](mailto:rebase.srl@legalmail.it). It is the controller named in [rebase's privacy notice](https://letsrebase.com/privacy), which also covers the rest of letsrebase.com.
 Contact: [ciao@letsrebase.com](mailto:ciao@letsrebase.com)
 
 ## 2. What we collect, with your consent

@@ -290,7 +290,7 @@ async function cmdSubmit() {
   console.log(`A person at rebase reads it before it counts. If they approve it, your profile gets «Verificato da rebase»,`);
   console.log(`companies in the talent cloud can see its summary and domains (written by your model, reviewed by you), and its text is used to write your anonymous card.`);
   console.log(`It is kept at most 12 months, and you can delete it from your member area.`);
-  console.log(`Controller: Humancraft di Ivan Sala. Details: https://letsrebase.com/privacy and PRIVACY.md.`);
+  console.log(`Controller: Rebase S.r.l. (VAT IT 14971460960). Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
   console.log(`Repository names (repoLabel) are stripped from the payload before it leaves your machine.`);
   console.log(`Inspect the exact outgoing payload:  work-profile submit --dry-run`);
