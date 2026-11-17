@@ -1,14 +1,12 @@
-> **This is `letsrebase/work-profile`, a fork of [Play-New/apply-new](https://github.com/Play-New/apply-new)** by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
->
-> **Do not submit from this fork yet.** Everything below is still the upstream text and describes Play New's intake: `submit` still sends to Play New, and the privacy terms, the no-ranking commitment and the contact links are Play New's, not rebase's. rebase's own terms replace them when the rebase recipient lands, and this notice will say so. `CONTRIBUTING.md` is Play New's process for the original; this fork's maintainer is in `.github/CODEOWNERS`.
+# work-profile
 
-# Apply New
+> `work-profile`: show rebase how you work, and get verified for it.
 
-> `apply-new`: apply to Play New by showing how you work.
+Credit where it is due: this is [`letsrebase/work-profile`](https://github.com/letsrebase/work-profile), rebase's fork of [apply-new](https://github.com/Play-New/apply-new) by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. If approved, the profile earns «Verificato da rebase» and an anonymous summary can be shown to companies in the talent cloud and used in your anonymous card. It is kept at most 12 months and you can delete it from your member area. `submit` sends to rebase, never to Play New. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
 
-A CV is a list of what you did, formatted for keyword scans. For work that happens inside agent logs, it's the wrong surface. The signal we care about (how you decompose, how you verify, what you do when the model misunderstands) already exists in your agent sessions, whichever CLI they happen to live in. A resume can't see it.
+A CV is a list of what you did, formatted for keyword scans. For work that happens inside agent logs, it's the wrong surface. The signal that matters (how you decompose, how you verify, what you do when the model misunderstands) already exists in your agent sessions, whichever CLI they happen to live in. A resume can't see it.
 
-Apply New makes it visible. You run it on your laptop, you see the profile before anyone else does, and you decide whether to share it. There's no scoring or ranking. The profile describes how you work, and it opens a conversation.
+This tool makes it visible. You run it on your laptop, you see the profile before anyone else does, and you decide whether to send it to rebase. There's no scoring or ranking of you. The profile describes how you work, and it opens a conversation.
 
 ## You'll need
 
@@ -17,16 +15,16 @@ Node 20 or newer, Claude Code installed, and a Claude subscription (Pro, Max, or
 ## How it goes
 
 ```
-git clone https://github.com/Play-New/apply-new
-cd apply-new
+git clone https://github.com/letsrebase/work-profile
+cd work-profile
 claude
-> /apply-new
+> /work-profile
 ```
 
-The slash command asks for four contact fields (name, email, city, status), reads your Claude Code history, and lets your own Claude write a short profile about you. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents. Submission is a second step. You can keep the profile for yourself.
+The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents. Submission is a second step. You can keep the profile for yourself.
 
 ```
-node bin/apply-new.mjs submit --yes
+node bin/work-profile.mjs submit --yes
 ```
 
 ## Sources
@@ -70,27 +68,27 @@ The profile also discloses its own coverage: a `sources` block records which log
 
 It isn't a personality test, and the cognitive tags are descriptive: there's no "better" tag, only different patterns. The profile doesn't compare you with anyone else, and it doesn't predict performance.
 
-It doesn't evaluate you, and nothing downstream does either. The only scores in the pipeline (authenticity, groundedness) measure the *report's* integrity — whether the logs are internally consistent and the prose tracks the data — never you. On our side, profiles reach humans unranked: nothing sorts, filters, or thresholds candidates on any profile field. A person reads the report and decides whether to invite you to a conversation. This is a recorded commitment ([ADR-001](docs/adr/001-just-a-report.md)), not marketing.
+It doesn't score you. The only scores in the pipeline (authenticity, groundedness) measure the *report's* integrity — whether the logs are internally consistent and the prose tracks the data — never you. Nothing counts until a person at rebase has read the profile and approved it. Approval means two things: your profile carries «Verificato da rebase», and an anonymous summary of it can be shown to companies in the talent cloud and used in your anonymous card. A person decides; the tool never does.
 
-It doesn't replace a conversation, or a live task in our repo. The decision about humans stays with humans.
+It doesn't replace a conversation. The decision about humans stays with humans.
 
-## What we collect, what we don't
+## What we send, what we don't
 
-We collect the four contact fields you typed, the profile JSON, and any artifact you explicitly chose to attach. We don't see client names, product names, person names, your code, or your raw logs. The redaction runs on your machine before anything leaves it.
+You sign in to rebase in your browser when you send, so rebase knows it is you: no name, email or city goes with the profile, and the tool no longer asks for them. What is sent is the profile JSON (counts, abstract domains, tags, a short narrative, and any artifact *link* you chose to add). We don't see client names, product names, person names, repository names, your code, or your raw logs. The redaction runs on your machine before anything leaves it. rebase takes no attached files: an artifact has to be a link.
 
-Want it gone? Reach us via [playnew.com](https://playnew.com) and we delete your application and any attached artifacts. Locally, everything the tool generated lives in the `out/` folder — delete it and it's gone.
+The profile waits as a draft until a person at rebase reviews it. It is kept at most 12 months, and you can delete it from your member area at any time. Locally, everything the tool generated lives in the `out/` folder — delete it and it's gone.
 
 ## Policy
 
-Legal basis: explicit consent (GDPR Art. 6(1)(a)). You run `submit --yes` after seeing what's in the payload. Retention: while we're talking, or up to 12 months. Your rights (access, rectification, erasure, portability, objection) are exercised by writing to us via [playnew.com](https://playnew.com).
+Legal basis: explicit consent (GDPR Art. 6(1)(a)). You run `submit --yes` after seeing what's in the payload, and you can read the exact payload first with `submit --dry-run`. The controller is the one named in [rebase's privacy notice](https://letsrebase.com/privacy). Retention: at most 12 months from the day you send it, and you can delete it earlier from your member area. Your rights (access, rectification, erasure, portability, objection) are exercised by writing to ciao@letsrebase.com.
 
-Under the EU AI Act (Regulation 2024/1689), systems that filter job applications and evaluate candidates are classified high-risk (Annex III §4(a)). We treat Apply New that way. Transparency: this README and the source on GitHub. Human oversight: no automated decision; a person reads each profile. Disclosure: you're interacting with an AI tool. Data governance: raw logs stay local, only a consented subset is transmitted, retention is declared. Full text in [PRIVACY.md](PRIVACY.md).
+Under the EU AI Act (Regulation 2024/1689), systems that filter job applications and evaluate candidates are classified high-risk (Annex III §4(a)). We treat the work profile that way. Transparency: this README and the source on GitHub. Human oversight: no automated decision; a person at rebase reads each profile, and only that person's approval verifies it. Disclosure: you're interacting with an AI tool. Data governance: raw logs stay local, only a consented subset is transmitted, retention is declared. Full text in [PRIVACY.md](PRIVACY.md).
 
 ## Limits
 
-You decide which projects we see, so the tool can't see what's missing. Logs of solo work mostly show execution, which means leadership, mentoring, and the work of being with humans is invisible from here. Our thresholds (read-to-edit above 2, ≥15 delegations) are empirical: we don't know yet how they hold across hundreds of candidates. The narrative is written by a model; the prompt constrains it, it doesn't make it neutral. We read each profile by hand, and we're still learning what to look for.
+You decide which projects rebase sees, so the tool can't see what's missing. Logs of solo work mostly show execution, which means leadership, mentoring, and the work of being with humans is invisible from here. The thresholds (read-to-edit above 2, ≥15 delegations) are empirical: we don't know yet how they hold across hundreds of people. The narrative is written by a model; the prompt constrains it, it doesn't make it neutral. A person at rebase reads each profile by hand, and we're still learning what to look for.
 
-If you spot something we should change, [open an issue](https://github.com/Play-New/apply-new/issues).
+If you spot something we should change, [open an issue](https://github.com/letsrebase/work-profile/issues).
 
 ## Commands
 
@@ -100,9 +98,9 @@ If you spot something we should change, [open an issue](https://github.com/Play-
 | `prepare` | only `out/narrative-input.json`, for writing the narrative manually |
 | `finalize --narrative-file out/narrative.json` | finalize after `prepare` |
 | `submit --dry-run` | write the exact outgoing payload to `out/payload-preview.json`, send nothing |
-| `submit --yes` | send to Play New |
+| `submit --yes` | sign in to rebase in the browser, then send the profile; a person at rebase reviews it |
 
-All commands run as `node bin/apply-new.mjs <sub>` or as `apply-new <sub>` after `npm link`. Common flags: `--name`, `--email`, `--city`, `--status`, `--top N` (force the project count; default is adaptive 3–5), `--root <dir>`, the per-source roots and opt-outs from the Sources table above, `--tz <IANA zone>` (bucket the day-based counts — active days, streak — in your timezone instead of the UTC default; the zone you choose is recorded in the profile, which is also why UTC is the default: a zone names a place, and nothing location-shaped should leave your machine unless you opt in). Without Claude Code, set `ANTHROPIC_API_KEY` and the narrative goes through the API instead of your subscription — note that on this path the narrative input (project labels, README/CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts) is sent to api.anthropic.com under your own key, before any name-stripping; the tool warns when this happens, and an explicit `--narrative-file` always takes precedence over the key. The subscription and manual paths stay fully local until submit. Details in [PRIVACY.md](PRIVACY.md).
+All commands run as `node bin/work-profile.mjs <sub>` or as `work-profile <sub>` after `npm link`. Common flags: `--top N` (force the project count; default is adaptive 3–5), `--root <dir>`, the per-source roots and opt-outs from the Sources table above, `--hub <url>` (where `submit` sends; default `https://letsrebase.com`, also settable with `WORK_PROFILE_HUB_URL`; `--hub preview` means `https://preview.letsrebase.com`), `--tz <IANA zone>` (bucket the day-based counts — active days, streak — in your timezone instead of the UTC default; the zone you choose is recorded in the profile, which is also why UTC is the default: a zone names a place, and nothing location-shaped should leave your machine unless you opt in). Without Claude Code, set `ANTHROPIC_API_KEY` and the narrative goes through the API instead of your subscription — note that on this path the narrative input (project labels, README/CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts) is sent to api.anthropic.com under your own key, before any name-stripping; the tool warns when this happens, and an explicit `--narrative-file` always takes precedence over the key. The subscription and manual paths stay fully local until submit. Details in [PRIVACY.md](PRIVACY.md).
 
 ## Tests
 

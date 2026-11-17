@@ -50,11 +50,11 @@ an effect on search in the hub. The guard we keep instead is that nothing counts
 person approves it, and that no model-written score about a person ships before Linear
 REB-1132 is decided (`docs/design/DECISIONS.md` of `letsrebase/rebase`, 2026-11-17).
 
-Until the rebase recipient lands, the texts a freelancer reads (`README.md` from «What it
-isn't» on, `PRIVACY.md`, `SECURITY.md`, `.claude/commands/apply-new.md`) and the links in
-`package.json` still describe Play New's intake and point at Play New. The recipient change
-rewrites them all in one go, so that no freelancer is shown a promise of the wrong
-recipient.
+The texts a freelancer reads (`README.md`, `PRIVACY.md`, `SECURITY.md`,
+`.claude/commands/work-profile.md`) and the links in `package.json` name rebase as the
+recipient and point at `letsrebase/work-profile`. A change to what `submit` sends or keeps
+changes those texts in the same commit, so that no freelancer is shown a promise of the
+wrong recipient.
 
 ## What stays upstream's
 
