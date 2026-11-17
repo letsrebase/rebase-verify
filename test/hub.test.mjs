@@ -1,8 +1,8 @@
 // The sign-in and the send, with fetch, the browser opener and the clock injected:
 // no network, no timers, no real browser.
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveHub, signIn, openInBrowser, DEFAULT_HUB, PREVIEW_HUB } from "../src/hub.mjs";
@@ -116,8 +116,14 @@ test("openInBrowser: picks the platform opener and reports a missing one", async
   assert.equal(await openInBrowser("https://x.test/", { platform: "linux", spawnFn: missing }), false);
 });
 
+const tmpDirs = [];
+after(() => {
+  for (const dir of tmpDirs) rmSync(dir, { recursive: true, force: true });
+});
+
 const tmpProfile = (profile) => {
   const dir = mkdtempSync(join(tmpdir(), "work-profile-submit-"));
+  tmpDirs.push(dir);
   const path = join(dir, "candidate.json");
   writeFileSync(path, JSON.stringify(profile));
   return path;
