@@ -88,7 +88,7 @@ Under EU Regulation 2024/1689 (the AI Act), Annex III §4(a), AI systems used to
 
 ## 9. A fully manual alternative
 
-If you prefer not to use the tool (for any reason, including unease about the AI generation), write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com). We will arrange a no-tool conversation. You do not lose anything by not using work-profile.
+If you prefer not to use the tool (for any reason, including unease about the AI generation), write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com). We will arrange a no-tool conversation, after which a person at rebase can verify you the same way. Nothing is required: you stay in rebase, with your card and your member area, whether or not you send a work profile.
 
 ## 10. Changes
 
