@@ -9,7 +9,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolveHub, signIn, USER_AGENT } from "./hub.mjs";
 
-// The exact JSON that leaves the machine, as one pure step — shared by the
+// The exact JSON that leaves the machine, as one pure step, shared by the
 // real POST and `submit --dry-run`, so what the candidate inspects IS what is
 // sent. Does not mutate its input.
 export function buildPayload(profile) {
@@ -21,7 +21,7 @@ export function buildPayload(profile) {
   const payload = structuredClone(profile);
   // Strip repoLabel from every project before sending. The label is the
   // candidate's own directory name and is meant ONLY to help them recognise
-  // their projects locally during curation — it must not reach rebase.
+  // their projects locally during curation, it must not reach rebase.
   stripRepoLabels(payload);
   // The sign-in identifies the person; nothing typed about them is sent.
   delete payload.contact;

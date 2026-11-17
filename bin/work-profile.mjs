@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// work-profile — turn your Claude Code logs into a tamper-evident, PII-redacted
+// work-profile: turn your Claude Code logs into a tamper-evident, PII-redacted
 // work profile (playnew-profile/v1).
 //
-// Sub-commands (default: generate — save locally, no submit):
+// Sub-commands (default: generate, save locally, no submit):
 //
 //   work-profile                      # = work-profile generate
 //   work-profile generate             # build out/profile.md + out/candidate.json locally
@@ -10,7 +10,7 @@
 //   work-profile finalize             # finalize using --narrative-file out/narrative.json
 //   work-profile submit               # sign in in the browser, then send out/candidate.json to rebase
 //
-// Everything generated lands in ./out — one folder to inspect, one to delete,
+// Everything generated lands in ./out, one folder to inspect, one to delete,
 // one line of .gitignore. Nothing is written to the repo root.
 //
 // Common flags:
@@ -24,7 +24,7 @@
 //   --narrative-file narrative.json
 //
 // Three ways to provide the narrative step (the qualitative prose):
-//   A. Inside Claude Code via .claude/commands/work-profile.md — uses the
+//   A. Inside Claude Code via .claude/commands/work-profile.md, uses the
 //      candidate's own subscription, no API key needed.
 //   B. With the Claude API:  set ANTHROPIC_API_KEY and run `generate`.
 //   C. Manually:  `prepare` -> hand-write narrative.json -> `finalize`.
@@ -54,7 +54,7 @@ import { DEFAULT_TZ } from "../src/days.mjs";
 // Friendly Node floor (package.json `engines` is advisory only when invoked
 // as `node bin/work-profile.mjs`). Imports hoist and evaluate before this line
 // runs, so the check only protects us while src/ stays free of import-time
-// Node-20-only syntax and builtins — true today: fetch / FormData /
+// Node-20-only syntax and builtins, true today: fetch / FormData /
 // structuredClone all live inside function bodies, and everything parses as
 // ES2022. Without this, old Node dies later with a bare ReferenceError.
 const nodeMajor = Number(process.versions.node.split(".")[0]);
@@ -93,7 +93,7 @@ function sourceFlags() {
   };
 }
 
-// Validate --tz up front, before reading any logs — an unknown zone should fail
+// Validate --tz up front, before reading any logs, an unknown zone should fail
 // fast, not throw mid-pipeline from inside Intl.DateTimeFormat.
 const tzFlag = flag("tz", DEFAULT_TZ);
 try {
@@ -104,7 +104,7 @@ try {
 }
 
 // Every generated file (narrative-input.json, narrative.json, candidate.json,
-// profile.md) lands in ./out — never in the repo root.
+// profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
 const outDir = () => {
   const out = join(process.cwd(), OUT_DIR);
@@ -212,10 +212,10 @@ async function cmdGenerate() {
 // the score embedded. Centralised so generate and finalize share it.
 function assembleWithGroundedness(args) {
   // The raw vocabularyCandidates never enter the profile (they can carry
-  // client names) — so a narrative that omitted its filtered pick leaves
+  // client names), so a narrative that omitted its filtered pick leaves
   // newVocabulary empty. Say so instead of failing silently.
   if (args.narrative && args.trajectory?.vocabularyCandidates?.length && !args.narrative.trajectory?.vocabulary_adopted?.length) {
-    console.error(`      note: the narrative has no trajectory.vocabulary_adopted — newVocabulary stays empty (raw candidates are never used; re-run the narrative step to fill it)`);
+    console.error(`      note: the narrative has no trajectory.vocabulary_adopted, newVocabulary stays empty (raw candidates are never used; re-run the narrative step to fill it)`);
   }
   const draft = assembleProfile(args);
   const groundedness = assessGroundedness(draft);
@@ -272,7 +272,7 @@ async function cmdSubmit() {
   let profilePath = join(process.cwd(), OUT_DIR, "candidate.json");
   if (!existsSync(profilePath) && existsSync(join(process.cwd(), "candidate.json"))) {
     profilePath = join(process.cwd(), "candidate.json");
-    console.log(`(using ./candidate.json from an older run — new runs write to ${OUT_DIR}/)`);
+    console.log(`(using ./candidate.json from an older run, new runs write to ${OUT_DIR}/)`);
   }
   if (!existsSync(profilePath)) {
     console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  work-profile generate`);
@@ -288,7 +288,7 @@ async function cmdSubmit() {
   console.log(`  artifact links: ${links}`);
   console.log(`\nYou sign in in the browser first, so rebase knows it is you; no name, email or city is sent with the profile.`);
   console.log(`A person at rebase reads it before it counts. If they approve it, your profile gets «Verificato da rebase»,`);
-  console.log(`an anonymous summary of it is shown to companies in the talent cloud, and its text is used to write your anonymous card.`);
+  console.log(`companies in the talent cloud can see its summary and domains (written by your model, reviewed by you), and its text is used to write your anonymous card.`);
   console.log(`It is kept at most 12 months, and you can delete it from your member area.`);
   console.log(`Controller: Humancraft di Ivan Sala. Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
@@ -311,7 +311,7 @@ async function cmdSubmit() {
   }
   const embedded = profile.groundedness?.score;
   if (g.score != null && embedded != null && Math.abs(g.score - embedded) > 5) {
-    console.log(`  Note: the file says groundedness ${embedded}% but it recomputes to ${g.score}% — candidate.json was edited after generation.`);
+    console.log(`  Note: the file says groundedness ${embedded}% but it recomputes to ${g.score}%, candidate.json was edited after generation.`);
   }
 
   // Pre-flight consistency: structural invariants, then re-derivation from
@@ -326,8 +326,8 @@ async function cmdSubmit() {
     // (see sourceFlags()'s comment for why this must never drift).
     const parsed = readAllSources({ claudeRoot: root, sources: sourceFlags() });
     const digest = buildDigest(parsed);
-    // Re-derive day-based intensity in the zone the profile RECORDED — never
-    // the machine zone — so the comparison measures the data, not the bucketing.
+    // Re-derive day-based intensity in the zone the profile RECORDED, never
+    // the machine zone, so the comparison measures the data, not the bucketing.
     const intensity = computeIntensity(parsed, { tz: profile.intensity?.timezone || DEFAULT_TZ });
     const logs = assessAgainstLogs(profile, digest.projects, { intensity });
     issues.push(...logs.issues);
@@ -342,12 +342,12 @@ async function cmdSubmit() {
     if (excessClaims > 0) {
       // Claims exceed what the logs can prove now. Since normal use only ever
       // GROWS the logs, the usual cause is Claude Code's cleanup pruning the
-      // oldest sessions between generation and submit — not anything the
+      // oldest sessions between generation and submit, not anything the
       // candidate did wrong.
       console.log(`  Your profile claims more than your logs can prove right now. The usual cause:`);
       console.log(`  Claude Code prunes sessions older than its cleanup period (~30 days by default),`);
       console.log(`  and the oldest part of your window aged out after the profile was generated.`);
-      console.log(`  Nothing is wrong with what you did — the numbers are just stale.`);
+      console.log(`  Nothing is wrong with what you did: the numbers are just stale.`);
       console.log(`  Fix: regenerate now and submit right away (work-profile generate, or re-run /work-profile).`);
     } else {
       console.log(`  If your logs were pruned since generation, regenerate (work-profile generate).`);
@@ -375,13 +375,13 @@ async function cmdSubmit() {
   };
 
   // --dry-run: write the EXACT outgoing JSON (repository names stripped) and
-  // stop before any network call — so a candidate under NDA can read the very
+  // stop before any network call, so a candidate under NDA can read the very
   // bytes that would leave the machine. The file is written even when submit
   // would be blocked: inspection is the point; the exit code says which.
   if (has("dry-run")) {
     const previewPath = join(process.cwd(), OUT_DIR, "payload-preview.json");
     writeFileSync(previewPath, JSON.stringify(buildPayload(profile), null, 2) + "\n");
-    console.log(`\nWrote ${OUT_DIR}/payload-preview.json — the exact JSON \`submit --yes\` would POST (repository names and contact stripped). Nothing was sent.`);
+    console.log(`\nWrote ${OUT_DIR}/payload-preview.json, the exact JSON \`submit --yes\` would POST (repository names and contact stripped). Nothing was sent.`);
     if (blockers.length) {
       console.error(`\nsubmit would be blocked:`);
       printBlockers();

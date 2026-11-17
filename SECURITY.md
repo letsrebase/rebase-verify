@@ -25,7 +25,7 @@ Credit in the fix's release notes is yours if you want it.
 - Intake or sign-in issues on the rebase hub (injection, auth bypass, a sign-in token
   that can be reused or guessed). Report these the same way; they are fixed on the hub.
 - Anything that lets a profile claim verification it didn't earn (tampering with
-  the authenticity/groundedness mechanisms counts — they're trust surfaces).
+  the authenticity/groundedness mechanisms counts: they're trust surfaces).
 
 ## Supported versions
 
