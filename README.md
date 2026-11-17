@@ -6,7 +6,7 @@ Credit where it is due: this is [`letsrebase/work-profile`](https://github.com/l
 
 A CV is a list of what you did, formatted for keyword scans. For work that happens inside agent logs, it's the wrong surface. The signal that matters (how you decompose, how you verify, what you do when the model misunderstands) already exists in your agent sessions, whichever CLI they happen to live in. A resume can't see it.
 
-This tool makes it visible. You run it on your laptop, you see the profile before anyone else does, and you decide whether to send it to rebase. There's no scoring or ranking of you. The profile describes how you work, and it opens a conversation.
+This tool makes it visible. You run it on your laptop, you see the profile before anyone else does, and you decide whether to send it to rebase. The tool doesn't score you; if a person at rebase approves the profile, it earns «Verificato da rebase», which the talent cloud lists first. The profile describes how you work, and it opens a conversation.
 
 ## You'll need
 
@@ -68,7 +68,7 @@ The profile also discloses its own coverage: a `sources` block records which log
 
 It isn't a personality test, and the cognitive tags are descriptive: there's no "better" tag, only different patterns. The profile doesn't compare you with anyone else, and it doesn't predict performance.
 
-It doesn't score you. The only scores in the pipeline (authenticity, groundedness) measure the *report's* integrity — whether the logs are internally consistent and the prose tracks the data — never you. Nothing counts until a person at rebase has read the profile and approved it. Approval means two things: your profile carries «Verificato da rebase», and an anonymous summary of it can be shown to companies in the talent cloud and used in your anonymous card. A person decides; the tool never does.
+It doesn't score you. The only scores in the pipeline (authenticity, groundedness) measure the *report's* integrity — whether the logs are internally consistent and the prose tracks the data — never you. Nothing counts until a person at rebase has read the profile and approved it. Approval means three things: your profile carries «Verificato da rebase», and the talent cloud lists verified talents first; an anonymous summary of it can be shown to companies there; and the profile's text is used to write your anonymous card, through the AI provider named in [rebase's privacy notice](https://letsrebase.com/privacy). Deleting the profile does not remove «Verificato da rebase»; write to ciao@letsrebase.com to have it removed. A person decides; the tool never does.
 
 It doesn't replace a conversation. The decision about humans stays with humans.
 

@@ -17,12 +17,30 @@ export function resolveHub(flagValue, env = process.env) {
   return url.replace(/\/+$/, "");
 }
 
-// Opens a URL with the platform's opener. Resolves true when the opener
+// The address the opener may be given: https (http only for a local hub), on the hub's own
+// origin, and free of characters a shell would treat specially. Returns the href, or null.
+export function safeBrowserUrl(raw, hub) {
+  if (typeof raw !== "string" || /[\s|<>^"`]/.test(raw)) return null;
+  let u;
+  let base;
+  try {
+    u = new URL(raw);
+    base = new URL(hub);
+  } catch {
+    return null;
+  }
+  const local = u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  if (u.protocol !== "https:" && !(u.protocol === "http:" && local)) return null;
+  if (u.origin !== base.origin) return null;
+  return u.href;
+}
+
+// Opens a URL with the platform's opener, never through a shell. Resolves true when the opener
 // started, false when there is none; never throws.
 export function openInBrowser(url, { platform = process.platform, spawnFn = spawn } = {}) {
   const [cmd, args] =
     platform === "darwin" ? ["open", [url]]
-    : platform === "win32" ? ["cmd", ["/c", "start", "", url.replace(/&/g, "^&")]]
+    : platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]]
     : ["xdg-open", [url]];
   return new Promise((resolve) => {
     try {
@@ -37,14 +55,15 @@ export function openInBrowser(url, { platform = process.platform, spawnFn = spaw
 
 const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// `parsed` is the JSON body or null when there was none; `data` is the same with {} for null.
 async function postJson(fetchFn, url, body) {
   const res = await fetchFn(url, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
-  return { res, data };
+  const parsed = await res.json().catch(() => null);
+  return { res, data: parsed ?? {}, parsed };
 }
 
 // Runs the device flow and resolves with the access token. Everything that
@@ -53,6 +72,7 @@ export async function signIn(hub, {
   fetchFn = fetch,
   open = openInBrowser,
   sleep = sleepMs,
+  now = Date.now,
   log = console.log,
 } = {}) {
   const start = await postJson(fetchFn, `${hub}/api/hub/cli/device`, { scope: "work_profile" });
@@ -67,20 +87,31 @@ export async function signIn(hub, {
   log(`\nSign in to rebase to send your profile.`);
   log(`Your code: ${user_code}`);
   const link = verification_uri_complete || verification_uri;
-  const opened = link ? await open(link) : false;
+  // Only a link on the hub's own origin is handed to the system opener; anything else is printed.
+  const href = safeBrowserUrl(link, hub);
+  const opened = href ? await open(href) : false;
   if (opened) {
     log(`A browser tab should have opened. Check the code matches, then press «Autorizza».`);
-    log(`If it did not open, go to: ${link}`);
+    log(`If it did not open, go to: ${href}`);
   } else {
     log(`Open this address in a browser, check the code matches, then press «Autorizza»:`);
     log(`  ${link}`);
   }
   log(`Waiting for you to approve (the code is valid ${Math.round(expiresIn / 60)} minutes)...`);
 
-  const deadline = Date.now() + expiresIn * 1000 + 30_000;
+  const deadline = now() + expiresIn * 1000 + 30_000;
   for (;;) {
     await sleep(interval * 1000);
-    const { data } = await postJson(fetchFn, `${hub}/api/hub/cli/token`, { device_code });
+    let data = null;
+    try {
+      const answer = await postJson(fetchFn, `${hub}/api/hub/cli/token`, { device_code });
+      if (answer.res.status < 500) data = answer.parsed;
+    } catch {
+      data = null;
+    }
+    // A network error, a 5xx or a non-JSON answer is a hiccup, not a verdict (RFC 8628 § 3.5):
+    // back off and keep polling until the code expires.
+    if (!data) data = { error: "slow_down" };
     if (data.access_token) return data.access_token;
     switch (data.error) {
       case "authorization_pending":
@@ -95,6 +126,6 @@ export async function signIn(hub, {
       default:
         throw new Error(`the hub answered the sign-in with an error: ${data.error || data.detail || "unknown"}`);
     }
-    if (Date.now() > deadline) throw new Error("the sign-in took too long, so nothing was sent. Run submit again for a new code.");
+    if (now() > deadline) throw new Error("the sign-in took too long, so nothing was sent. Run submit again for a new code.");
   }
 }

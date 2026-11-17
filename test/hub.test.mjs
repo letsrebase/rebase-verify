@@ -166,3 +166,72 @@ test("submitProfile: a refusal of the content is reported with its answer", asyn
   const { fetchFn } = scriptedHub([json(200, { access_token: "tok" })], { intake: () => json(422, { detail: "groundedness 40" }) });
   await assert.rejects(submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts }), /422.*groundedness 40/);
 });
+
+// --- review follow-ups ----------------------------------------------------------
+
+import { safeBrowserUrl } from "../src/hub.mjs";
+
+test("openInBrowser on win32 never goes through cmd", async () => {
+  const seen = [];
+  const fake = (cmd, args) => {
+    seen.push([cmd, args]);
+    return { once: (e, f) => { if (e === "spawn") queueMicrotask(f); }, unref() {} };
+  };
+  await openInBrowser(`${HUB}/hub/cli?code=A`, { platform: "win32", spawnFn: fake });
+  assert.equal(seen[0][0], "rundll32");
+  assert.deepEqual(seen[0][1], ["url.dll,FileProtocolHandler", `${HUB}/hub/cli?code=A`]);
+  assert.notEqual(seen[0][0], "cmd");
+});
+
+test("safeBrowserUrl refuses shell metacharacters, other origins and plain http", () => {
+  assert.equal(safeBrowserUrl(`${HUB}/hub/cli?code=A-B`, HUB), `${HUB}/hub/cli?code=A-B`);
+  for (const bad of [`${HUB}/a|calc`, `${HUB}/a"b`, `${HUB}/a^b`, `${HUB}/a<b`, "https://evil.test/hub/cli", "http://hub.test/hub/cli", "javascript:alert(1)", "not a url"]) {
+    assert.equal(safeBrowserUrl(bad, HUB), null, bad);
+  }
+  assert.equal(safeBrowserUrl("http://localhost:8000/hub/cli", "http://localhost:8000"), "http://localhost:8000/hub/cli");
+});
+
+test("signIn prints, and does not open, a link that fails the checks", async () => {
+  const fetchFn = async (url) => url.endsWith("/device")
+    ? json(200, { ...started, verification_uri_complete: "https://evil.test/x" })
+    : json(200, { access_token: "tok" });
+  const { out, opts } = harness();
+  await signIn(HUB, { fetchFn, ...opts });
+  assert.deepEqual(out.opened, []);
+  assert.ok(out.logs.some((l) => l.includes("https://evil.test/x")));
+});
+
+test("signIn keeps polling through a network error, a 5xx and a non-JSON answer, backing off", async () => {
+  const answers = [
+    () => { throw new Error("ECONNRESET"); },
+    () => json(503, { error: "x" }),
+    () => new Response("<html>bad gateway</html>", { status: 200 }),
+    () => json(200, { access_token: "tok" }),
+  ];
+  const fetchFn = async (url) => (url.endsWith("/device") ? json(200, started) : answers.shift()());
+  const { out, opts } = harness();
+  assert.equal(await signIn(HUB, { fetchFn, ...opts }), "tok");
+  assert.deepEqual(out.sleeps, [5000, 10000, 15000, 20000]);
+});
+
+test("signIn gives up locally once the deadline has passed", async () => {
+  let t = 0;
+  const fetchFn = async (url) => (url.endsWith("/device") ? json(200, { ...started, expires_in: 60 }) : json(400, { error: "authorization_pending" }));
+  const { opts } = harness();
+  await assert.rejects(
+    signIn(HUB, { fetchFn, ...opts, now: () => t, sleep: async (ms) => { t += ms; } }),
+    /took too long/,
+  );
+});
+
+test("the token never appears in anything printed", async () => {
+  const { fetchFn } = scriptedHub([json(200, { access_token: "SECRET-TOKEN" })]);
+  const { out, opts } = harness();
+  await submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...opts });
+  assert.ok(!out.logs.join("\n").includes("SECRET-TOKEN"));
+});
+
+test("submitProfile: a thrown fetch on the intake says to run submit again and sign in anew", async () => {
+  const { fetchFn } = scriptedHub([json(200, { access_token: "tok" })], { intake: () => { throw new Error("socket hang up"); } });
+  await assert.rejects(submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts }), /run submit again and sign in anew/);
+});

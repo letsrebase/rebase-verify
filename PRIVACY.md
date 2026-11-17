@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-17
 
-work-profile is a tool that turns your Claude Code logs into an anonymised work profile that you send to rebase, the freelance community at letsrebase.com. It is a report — a photograph of how you work with AI — not a score, a ranking, or an automated decision about you: a person at rebase reads it and decides whether to approve it. It is a fork of [apply-new](https://github.com/Play-New/apply-new) by Play New; the privacy terms here are rebase's, not Play New's.
+work-profile is a tool that turns your Claude Code logs into an anonymised work profile that you send to rebase, the freelance community at letsrebase.com. It is a report — a photograph of how you work with AI — not a score and not an automated decision about you: a person at rebase reads it and decides whether to approve it, and approval gives you «Verificato da rebase». It is a fork of [apply-new](https://github.com/Play-New/apply-new) by Play New; the privacy terms here are rebase's, not Play New's.
 
 This document explains what we do with the data you choose to send.
 
@@ -40,7 +40,7 @@ The name-stripping described in section 2 (no repository names, no client names 
 
 To let a person at rebase **review your work profile and, if they approve it, verify it**. Concretely:
 - A person at rebase reads the profile, which waits as a draft until then, and approves or declines it.
-- Once approved, the profile earns «Verificato da rebase» and rebase writes an anonymous summary of it, which can be shown to companies in the talent cloud and is used in your anonymous card.
+- Once approved, the profile earns «Verificato da rebase» (which the talent cloud lists first) and rebase writes an anonymous summary of it, which can be shown to companies in the talent cloud. The profile's text is also used to write your anonymous card: it is sent to the AI provider that [rebase's privacy notice](https://letsrebase.com/privacy) names as processor, under the terms described there.
 - Nothing is shown to anyone outside rebase before that approval.
 
 We **do not**:
@@ -50,7 +50,7 @@ We **do not**:
 
 ## 4. Legal basis
 
-**Explicit consent** (GDPR Art. 6(1)(a)). You run `work-profile submit --yes` after seeing what is being sent. You can inspect the exact payload before consenting: `work-profile submit --dry-run` writes it to `out/payload-preview.json` — repository names and contact already stripped — and sends nothing. Signing in to rebase in the browser, and pressing «Autorizza», is part of the same act. You can withdraw consent at any time by deleting the profile from your member area or by writing to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).
+**Explicit consent** (GDPR Art. 6(1)(a)). You run `work-profile submit --yes` after seeing what is being sent. You can inspect the exact payload before consenting: `work-profile submit --dry-run` writes it to `out/payload-preview.json` — repository names and contact already stripped — and sends nothing. Signing in to rebase in the browser, and pressing «Autorizza», is part of the same act. You can withdraw consent at any time by deleting the profile from your member area or by writing to [ciao@letsrebase.com](mailto:ciao@letsrebase.com); deleting the profile does not remove «Verificato da rebase», which you can ask the same address to remove.
 
 ## 5. How long we keep it (retention)
 
@@ -63,7 +63,7 @@ You can **delete it earlier** at any time from your member area.
 You have the right to:
 - **Access** the data we hold about you. Your `candidate.json` already is a copy, and the stored profile is visible in your member area.
 - **Rectification** — fix anything inaccurate. Easiest: re-generate locally and send again; a new profile replaces the previous one.
-- **Erasure** — be deleted. Delete the profile from your member area, or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).
+- **Erasure** — be deleted. Delete the profile from your member area, or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com). Deleting the profile does not remove «Verificato da rebase»: write to the same address to have it removed too.
 - **Portability** — receive the data in machine-readable form. Again, `candidate.json`.
 - **Objection / restriction** — pause processing.
 - **Lodge a complaint** with the [Garante per la protezione dei dati personali](https://www.garanteprivacy.it/) (the Italian DPA).
@@ -73,9 +73,9 @@ You have the right to:
 Under EU Regulation 2024/1689 (the AI Act), Annex III §4(a), AI systems used to "analyse and filter job applications and evaluate candidates" are classified as **high-risk**. The work profile is treated as such. The obligations we take on:
 
 - **Transparency.** This file and the [README](README.md) describe in plain terms what the tool measures, how the tags are derived, and what the model is asked to do — including the agentic-literacy counts (built-in vs custom, with custom names never exposed), the AI-relationship axis, the trajectory shifts, the per-product orchestration counts (per-CLI session split, agent-dispatch and delegation counts), and the practice-intensity signals. The source code is public on GitHub.
-- **Human oversight.** No automated decision is made about you. A person at rebase reads each profile and decides whether to approve it; approval is what verifies it (a «Verificato da rebase» badge and an anonymous summary), and nothing counts before it. The AI generates the profile and computes screening metrics; it does not rank you against others or decide anything about you. AI may score the *artifact* — the authenticity and groundedness scores measure whether your logs are internally consistent and whether the prose tracks the data — never you. A refusal is a person's call, not a score's.
+- **Human oversight.** No automated decision is made about you. A person at rebase reads each profile and decides whether to approve it; approval is what verifies it (a «Verificato da rebase» badge, which the talent cloud lists first, and an anonymous summary), and nothing counts before it. The AI generates the profile and computes screening metrics; it does not decide anything about you. AI may score the *artifact* — the authenticity and groundedness scores measure whether your logs are internally consistent and whether the prose tracks the data — never you. A refusal is a person's call, not a score's.
 - **Disclosure.** You are interacting with an AI tool. The narrative parts of your profile (summary, cognitive narrative, trajectory narrative, per-project descriptions) are model-generated.
-- **Data governance.** Raw logs stay on your machine. Only a redacted, consented subset is transmitted, with declared retention. Storage is in the EU.
+- **Data governance.** Raw logs stay on your machine. Only a redacted, consented subset is transmitted, with declared retention. Storage is in the EU. Once a profile is approved, its text is sent to write the anonymous card to the AI provider that [rebase's privacy notice](https://letsrebase.com/privacy) names as processor, and that notice also says where that processing happens and under which safeguards.
 - **Logging.** We keep server-side logs of API requests (timestamps, status codes) for security and debugging, separate from the application data.
 - **Robustness & accuracy.** The deterministic parts (tags, metrics, groundedness check) are open-source and inspectable. The narrative is constrained by a documented prompt. The groundedness check blocks submissions where the prose drifts from the data below a threshold.
 

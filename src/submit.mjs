@@ -39,11 +39,16 @@ export async function submitProfile(profilePath, { hub, fetchFn = fetch, ...flow
 
   const form = new FormData();
   form.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }), "candidate.json");
-  const res = await fetchFn(`${base}/api/hub/work-profiles`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${token}` },
-    body: form,
-  });
+  let res;
+  try {
+    res = await fetchFn(`${base}/api/hub/work-profiles`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+  } catch (e) {
+    throw new Error(`could not reach the hub to send the profile (${e.message}). The sign-in is spent by the first attempt, so run submit again and sign in anew.`);
+  }
   if (res.status === 401) {
     throw new Error("the hub did not accept the sign-in (it is valid for one profile only and 15 minutes). Run submit again to sign in anew.");
   }

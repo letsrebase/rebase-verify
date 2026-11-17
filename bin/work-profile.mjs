@@ -287,7 +287,10 @@ async function cmdSubmit() {
   console.log(`  profile: ${profile.volume?.sessions} sessions, ${profile.volume?.products} products`);
   console.log(`  artifact links: ${links}`);
   console.log(`\nYou sign in in the browser first, so rebase knows it is you; no name, email or city is sent with the profile.`);
-  console.log(`A person at rebase reads it before it counts. You can delete it from your member area, and it is kept at most 12 months.`);
+  console.log(`A person at rebase reads it before it counts. If they approve it, your profile gets «Verificato da rebase»,`);
+  console.log(`an anonymous summary of it is shown to companies in the talent cloud, and its text is used to write your anonymous card.`);
+  console.log(`It is kept at most 12 months, and you can delete it from your member area.`);
+  console.log(`Controller: Humancraft di Ivan Sala. Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
   console.log(`Repository names (repoLabel) are stripped from the payload before it leaves your machine.`);
   console.log(`Inspect the exact outgoing payload:  work-profile submit --dry-run`);
