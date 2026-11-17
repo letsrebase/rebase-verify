@@ -218,9 +218,9 @@ export async function generateNarrative(selected, enrichments, { overrideFile, t
   const key = process.env.ANTHROPIC_API_KEY;
   if (key) {
     console.error(
-      "[apply-new] ANTHROPIC_API_KEY is set: the narrative input (project labels, README/CLAUDE.md excerpts,\n" +
+      "[work-profile] ANTHROPIC_API_KEY is set: the narrative input (project labels, README/CLAUDE.md excerpts,\n" +
         "            dependency names, commit subjects, sampled prompts) is being sent to api.anthropic.com.\n" +
-        "            To stay fully local until submit, unset the key and use the /apply-new slash command\n" +
+        "            To stay fully local until submit, unset the key and use the /work-profile slash command\n" +
         "            (subscription path) or `prepare` + a hand-written narrative file. See PRIVACY.md."
     );
     return { narrative: validateNarrative(await callAnthropic(input, key), "API"), input };

@@ -1,0 +1,100 @@
+// Sign-in against the rebase hub: the device authorization of the hub's
+// work-profile design (a small RFC 8628). The CLI asks for a code, the person
+// approves it in the browser, and the CLI polls until it holds an access token.
+// The token is returned to the caller and lives only in memory: it can send one
+// profile and is spent by it, so there is nothing to store and nothing to revoke.
+
+import { spawn } from "node:child_process";
+
+export const DEFAULT_HUB = "https://letsrebase.com";
+export const PREVIEW_HUB = "https://preview.letsrebase.com";
+
+// --hub <url>, else WORK_PROFILE_HUB_URL, else production. `preview` is a
+// shorthand for the preview host.
+export function resolveHub(flagValue, env = process.env) {
+  const raw = (flagValue || env.WORK_PROFILE_HUB_URL || DEFAULT_HUB).trim();
+  const url = raw === "preview" ? PREVIEW_HUB : raw;
+  return url.replace(/\/+$/, "");
+}
+
+// Opens a URL with the platform's opener. Resolves true when the opener
+// started, false when there is none; never throws.
+export function openInBrowser(url, { platform = process.platform, spawnFn = spawn } = {}) {
+  const [cmd, args] =
+    platform === "darwin" ? ["open", [url]]
+    : platform === "win32" ? ["cmd", ["/c", "start", "", url.replace(/&/g, "^&")]]
+    : ["xdg-open", [url]];
+  return new Promise((resolve) => {
+    try {
+      const child = spawnFn(cmd, args, { stdio: "ignore", detached: true });
+      child.once("error", () => resolve(false));
+      child.once("spawn", () => { child.unref?.(); resolve(true); });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function postJson(fetchFn, url, body) {
+  const res = await fetchFn(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+// Runs the device flow and resolves with the access token. Everything that
+// touches the outside is injectable so the flow tests without network or timers.
+export async function signIn(hub, {
+  fetchFn = fetch,
+  open = openInBrowser,
+  sleep = sleepMs,
+  log = console.log,
+} = {}) {
+  const start = await postJson(fetchFn, `${hub}/api/hub/cli/device`, { scope: "work_profile" });
+  if (!start.res.ok) {
+    throw new Error(`could not start the sign-in (${start.res.status}): ${start.data.detail || start.data.error || "no answer from the hub"}`);
+  }
+  const { device_code, user_code, verification_uri, verification_uri_complete } = start.data;
+  if (!device_code || !user_code) throw new Error("the hub answered the sign-in start without a code");
+  let interval = Number(start.data.interval) || 5;
+  const expiresIn = Number(start.data.expires_in) || 600;
+
+  log(`\nSign in to rebase to send your profile.`);
+  log(`Your code: ${user_code}`);
+  const link = verification_uri_complete || verification_uri;
+  const opened = link ? await open(link) : false;
+  if (opened) {
+    log(`A browser tab should have opened. Check the code matches, then press «Autorizza».`);
+    log(`If it did not open, go to: ${link}`);
+  } else {
+    log(`Open this address in a browser, check the code matches, then press «Autorizza»:`);
+    log(`  ${link}`);
+  }
+  log(`Waiting for you to approve (the code is valid ${Math.round(expiresIn / 60)} minutes)...`);
+
+  const deadline = Date.now() + expiresIn * 1000 + 30_000;
+  for (;;) {
+    await sleep(interval * 1000);
+    const { data } = await postJson(fetchFn, `${hub}/api/hub/cli/token`, { device_code });
+    if (data.access_token) return data.access_token;
+    switch (data.error) {
+      case "authorization_pending":
+        break;
+      case "slow_down":
+        interval += 5;
+        break;
+      case "access_denied":
+        throw new Error("you pressed «Annulla» in the browser, so nothing was sent. Run submit again when you want to send the profile.");
+      case "expired_token":
+        throw new Error("the code expired before it was approved, so nothing was sent. Run submit again for a new code.");
+      default:
+        throw new Error(`the hub answered the sign-in with an error: ${data.error || data.detail || "unknown"}`);
+    }
+    if (Date.now() > deadline) throw new Error("the sign-in took too long, so nothing was sent. Run submit again for a new code.");
+  }
+}

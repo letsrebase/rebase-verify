@@ -12,6 +12,6 @@ scratch-*.mjs
 /narrative*.json
 
 # Local Claude Code state (per-candidate); the slash command in
-# .claude/commands/apply-new.md stays tracked.
+# .claude/commands/work-profile.md stays tracked.
 .claude/settings.local.json
 .claude/projects/

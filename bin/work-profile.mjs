@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-// apply-new — turn your Claude Code logs into a tamper-evident, PII-redacted
+// work-profile — turn your Claude Code logs into a tamper-evident, PII-redacted
 // work profile (playnew-profile/v1).
 //
 // Sub-commands (default: generate — save locally, no submit):
 //
-//   apply-new                      # = apply-new generate
-//   apply-new generate             # build out/profile.md + out/candidate.json locally
-//   apply-new prepare              # only emit out/narrative-input.json (no narrative)
-//   apply-new finalize             # finalize using --narrative-file out/narrative.json
-//   apply-new submit               # POST out/candidate.json to Play New intake
+//   work-profile                      # = work-profile generate
+//   work-profile generate             # build out/profile.md + out/candidate.json locally
+//   work-profile prepare              # only emit out/narrative-input.json (no narrative)
+//   work-profile finalize             # finalize using --narrative-file out/narrative.json
+//   work-profile submit               # sign in in the browser, then send out/candidate.json to rebase
 //
 // Everything generated lands in ./out — one folder to inspect, one to delete,
 // one line of .gitignore. Nothing is written to the repo root.
 //
 // Common flags:
 //   --root <dir>                   # logs root (default ~/.claude/projects)
-//   --name "Giulia" --email g@x.io --city Milano --status freelance
+//   --hub <url|preview>            # rebase hub for submit (default https://letsrebase.com,
+//                                  # or WORK_PROFILE_HUB_URL; "preview" = preview.letsrebase.com)
 //   --top 4                        # force the number of representative projects
 //                                  # (default: adaptive, 3 to 5)
 //   --tz Europe/Rome               # timezone for day-based counts (activeDays,
 //                                  # streak). Default UTC; recorded in the profile.
 //   --narrative-file narrative.json
-//   --endpoint https://...         # override PLAYNEW_INTAKE_URL for submit
 //
 // Three ways to provide the narrative step (the qualitative prose):
-//   A. Inside Claude Code via .claude/commands/apply-new.md — uses the
+//   A. Inside Claude Code via .claude/commands/work-profile.md — uses the
 //      candidate's own subscription, no API key needed.
 //   B. With the Claude API:  set ANTHROPIC_API_KEY and run `generate`.
 //   C. Manually:  `prepare` -> hand-write narrative.json -> `finalize`.
@@ -32,7 +32,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
-import { execSync } from "node:child_process";
 import { readClaudeCode } from "../src/adapters/claude-code.mjs";
 import { readAllSources } from "../src/sources.mjs";
 import { computeFingerprint } from "../src/fingerprint.mjs";
@@ -41,7 +40,7 @@ import { buildDigest } from "../src/digest.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { generateNarrative } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
-import { buildContact } from "../src/contact.mjs";
+import { resolveHub } from "../src/hub.mjs";
 import { submitProfile, buildPayload } from "../src/submit.mjs";
 import { buildTrajectory } from "../src/trajectory.mjs";
 import { assessGroundedness } from "../src/groundedness.mjs";
@@ -53,14 +52,14 @@ import { computeDistribution } from "../src/distribution.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
-// as `node bin/apply-new.mjs`). Imports hoist and evaluate before this line
+// as `node bin/work-profile.mjs`). Imports hoist and evaluate before this line
 // runs, so the check only protects us while src/ stays free of import-time
 // Node-20-only syntax and builtins — true today: fetch / FormData /
 // structuredClone all live inside function bodies, and everything parses as
 // ES2022. Without this, old Node dies later with a bare ReferenceError.
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 if (nodeMajor < 20) {
-  console.error(`apply-new needs Node 20 or newer; you're running ${process.version}.`);
+  console.error(`work-profile needs Node 20 or newer; you're running ${process.version}.`);
   console.error(`Install a current Node from https://nodejs.org (or: nvm install 20).`);
   process.exit(1);
 }
@@ -78,7 +77,6 @@ const flag = (n, d = null) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : d;
 };
 const has = (n) => argv.includes(`--${n}`);
-const tryGit = (k) => { try { return execSync(`git config ${k}`, { encoding: "utf8" }).trim() || null; } catch { return null; } };
 
 // The `sources` shape readAllSources() expects, read from CLI flags. Called
 // from TWO places (loadProfileInputs and the submit command) that must never
@@ -169,35 +167,19 @@ async function loadProfileInputs(out) {
   return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources, out };
 }
 
-function resolveContact() {
-  const { contact, errors } = buildContact({
-    name: flag("name", tryGit("user.name")),
-    email: flag("email", tryGit("user.email")),
-    city: flag("city"),
-    status: flag("status"),
-  });
-  return { contact, errors };
-}
-
 function writeProfile(out, profile) {
   writeFileSync(join(out, "candidate.json"), JSON.stringify(profile, null, 2));
   const md = renderMarkdown(profile);
   writeFileSync(join(out, "profile.md"), md);
   console.log(md);
   console.log(`Saved: ${OUT_DIR}/candidate.json + ${OUT_DIR}/profile.md`);
-  console.log(`To submit to Play New when ready:  apply-new submit`);
+  console.log(`To send it to rebase when ready:  work-profile submit`);
 }
 
 async function cmdGenerate() {
   const out = outDir();
-  console.log(`\napply-new generate\n`);
+  console.log(`\nwork-profile generate\n`);
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
-  const { contact, errors } = resolveContact();
-  if (errors.length) {
-    console.error("\nMissing contact fields:");
-    for (const e of errors) console.error("  - " + e);
-    process.exit(2);
-  }
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
@@ -214,14 +196,14 @@ async function cmdGenerate() {
   if (!narrative) {
     writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
     console.log(`      no narrative yet (no API key, no --narrative-file).`);
-    console.log(`      Inside Claude Code:  /apply-new   (writes ${OUT_DIR}/narrative.json and finalizes)`);
-    console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  apply-new finalize`);
+    console.log(`      Inside Claude Code:  /work-profile   (writes ${OUT_DIR}/narrative.json and finalizes)`);
+    console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  work-profile finalize`);
     return;
   }
 
   console.log(`[5/5] Assembling and saving ...\n`);
   writeProfile(out, assembleWithGroundedness({
-    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -242,7 +224,7 @@ function assembleWithGroundedness(args) {
 
 async function cmdPrepare() {
   const out = outDir();
-  console.log(`\napply-new prepare\n`);
+  console.log(`\nwork-profile prepare\n`);
   const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
   const { input } = await generateNarrative(selected, enrichments, {
     overrideFile: null,
@@ -256,24 +238,18 @@ async function cmdPrepare() {
   });
   writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
   console.log(`Wrote ${OUT_DIR}/narrative-input.json.`);
-  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  apply-new finalize`);
+  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  work-profile finalize`);
 }
 
 async function cmdFinalize() {
   const out = outDir();
-  console.log(`\napply-new finalize\n`);
+  console.log(`\nwork-profile finalize\n`);
   const narrativeFile = flag("narrative-file", join(out, "narrative.json"));
   if (!existsSync(narrativeFile)) {
-    console.error(`Missing ${narrativeFile}. Run apply-new prepare first, then write ${OUT_DIR}/narrative.json.`);
+    console.error(`Missing ${narrativeFile}. Run work-profile prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
-  const { contact, errors } = resolveContact();
-  if (errors.length) {
-    console.error("\nMissing contact fields:");
-    for (const e of errors) console.error("  - " + e);
-    process.exit(2);
-  }
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -285,7 +261,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    contact, projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -299,22 +275,22 @@ async function cmdSubmit() {
     console.log(`(using ./candidate.json from an older run — new runs write to ${OUT_DIR}/)`);
   }
   if (!existsSync(profilePath)) {
-    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  apply-new generate`);
+    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  work-profile generate`);
     process.exit(2);
   }
   const profile = JSON.parse(readFileSync(profilePath, "utf8"));
-  const c = profile.contact || {};
+  const hub = resolveHub(flag("hub"));
+  const links = (profile.projects || []).filter((p) => p.artifact).length;
 
-  console.log(`\napply-new submit\n`);
-  console.log(`About to submit to Play New:`);
-  console.log(`  name:   ${c.name}`);
-  console.log(`  email:  ${c.email}`);
-  console.log(`  city:   ${c.city}    status: ${c.status}`);
+  console.log(`\nwork-profile submit\n`);
+  console.log(`About to send to rebase (${hub}):`);
   console.log(`  profile: ${profile.volume?.sessions} sessions, ${profile.volume?.products} products`);
-  console.log(`  artifacts: ${(profile.projects || []).filter((p) => p.artifact).length}`);
-  console.log(`\nNOT submitted: raw logs, local repo context, third-party proper names.`);
+  console.log(`  artifact links: ${links}`);
+  console.log(`\nYou sign in in the browser first, so rebase knows it is you; no name, email or city is sent with the profile.`);
+  console.log(`A person at rebase reads it before it counts. You can delete it from your member area, and it is kept at most 12 months.`);
+  console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
   console.log(`Repository names (repoLabel) are stripped from the payload before it leaves your machine.`);
-  console.log(`Inspect the exact outgoing payload:  apply-new submit --dry-run`);
+  console.log(`Inspect the exact outgoing payload:  work-profile submit --dry-run`);
 
   // Pre-flight groundedness: how much of the prose is anchored in the data.
   // Recomputed on the file as it is NOW, not trusted from the embedded score.
@@ -369,9 +345,9 @@ async function cmdSubmit() {
       console.log(`  Claude Code prunes sessions older than its cleanup period (~30 days by default),`);
       console.log(`  and the oldest part of your window aged out after the profile was generated.`);
       console.log(`  Nothing is wrong with what you did — the numbers are just stale.`);
-      console.log(`  Fix: regenerate now and submit right away (apply-new generate, or re-run /apply-new).`);
+      console.log(`  Fix: regenerate now and submit right away (work-profile generate, or re-run /work-profile).`);
     } else {
-      console.log(`  If your logs were pruned since generation, regenerate (apply-new generate).`);
+      console.log(`  If your logs were pruned since generation, regenerate (work-profile generate).`);
     }
   } else {
     console.log(`  structured data is internally consistent and matches your logs`);
@@ -382,15 +358,15 @@ async function cmdSubmit() {
     for (const b of blockers) {
       if (b.kind === "consistency") {
         console.error(`\nConsistency check failed (${b.count} issue${b.count > 1 ? "s" : ""}). Submission blocked.`);
-        console.error(`Regenerate the profile (apply-new generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
         console.error(`Note: the intake re-checks groundedness and these invariants server-side.`);
       } else if (b.kind === "groundedness-unscored") {
         console.error(`\nGroundedness could not be scored: the prose has too few checkable anchors for the screen to run. Submission blocked.`);
-        console.error(`Regenerate the profile (apply-new generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
         console.error(`Note: the intake flags unscoreable prose server-side as well.`);
       } else if (b.kind === "groundedness-low") {
         console.error(`\nGroundedness is low (${b.score}%). Submission blocked.`);
-        console.error(`Regenerate the profile (apply-new generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
       }
     }
   };
@@ -402,12 +378,7 @@ async function cmdSubmit() {
   if (has("dry-run")) {
     const previewPath = join(process.cwd(), OUT_DIR, "payload-preview.json");
     writeFileSync(previewPath, JSON.stringify(buildPayload(profile), null, 2) + "\n");
-    console.log(`\nWrote ${OUT_DIR}/payload-preview.json — the exact JSON \`submit --yes\` would POST (repository names stripped). Nothing was sent.`);
-    const fileArtifacts = (profile.projects ?? []).filter((p) => p.artifact?.type === "file" && p.artifact.path);
-    if (fileArtifacts.length) {
-      console.log(`Artifact files that would upload as separate parts:`);
-      for (const p of fileArtifacts) console.log(`  - ${p.id}: ${p.artifact.path}`);
-    }
+    console.log(`\nWrote ${OUT_DIR}/payload-preview.json — the exact JSON \`submit --yes\` would POST (repository names and contact stripped). Nothing was sent.`);
     if (blockers.length) {
       console.error(`\nsubmit would be blocked:`);
       printBlockers();
@@ -417,7 +388,7 @@ async function cmdSubmit() {
   }
 
   if (!has("yes")) {
-    console.log(`\nTo confirm:  apply-new submit --yes`);
+    console.log(`\nTo confirm:  work-profile submit --yes`);
     return;
   }
   if (blockers.length) {
@@ -425,10 +396,10 @@ async function cmdSubmit() {
     process.exit(2);
   }
 
-  const endpoint = flag("endpoint");
   try {
-    const res = await submitProfile(profilePath, { endpoint });
-    console.log(`\nSubmitted. id: ${res.id || "(n/a)"}, status: ${res.status || "ok"}`);
+    const res = await submitProfile(profilePath, { hub: flag("hub") });
+    console.log(`\nSent. Your profile is waiting as a draft: a person at rebase will read it before it counts.`);
+    if (res.review_url) console.log(`See its status here: ${res.review_url}`);
   } catch (e) {
     console.error(`\nSubmit failed: ${e.message}`);
     process.exit(1);

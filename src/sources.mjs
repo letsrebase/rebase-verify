@@ -1,5 +1,5 @@
 // Source resolution: which log sources get read for a run, and where they
-// come from. Shared by `apply-new generate` (the producer) and `apply-new
+// come from. Shared by `work-profile generate` (the producer) and `work-profile
 // submit` (which re-derives ground truth from the same logs).
 //
 // Sources can be combined:

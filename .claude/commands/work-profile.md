@@ -1,27 +1,18 @@
 ---
-description: Apply New — build your agentic application profile using your Claude subscription
+description: Work profile — build your agentic work profile using your Claude subscription and send it to rebase for review
 ---
 
-You are running the **narrative step** of `apply-new` for the human in front of you (the candidate). The deterministic pipeline (reading their Claude Code logs, redacting PII, clustering, scoring authenticity) is in `bin/apply-new.mjs`. Your job is to produce the qualitative prose so the candidate's own Claude subscription writes it — no API key needed.
+You are running the **narrative step** of `work-profile` for the human in front of you (the candidate). The deterministic pipeline (reading their Claude Code logs, redacting PII, clustering, scoring authenticity) is in `bin/work-profile.mjs`. Your job is to produce the qualitative prose so the candidate's own Claude subscription writes it — no API key needed.
 
 The default is **save, don't submit**. Submitting is a separate, explicit action the candidate triggers later.
 
 ## Steps
 
-1. **Collect contact info.** Ask the candidate, conversationally:
-   - First name (`--name`)
-   - Email (`--email`)
-   - City (`--city`)
-   - Status: `freelance` / `employed` / `student` / `looking` (`--status`)
+1. **Timezone, in ONE sentence.** Day-based counts (active days, longest streak) are bucketed in UTC by default so nothing location-shaped leaves the machine; if they'd rather have them in their local timezone, you'll pass `--tz <IANA zone>` (e.g. `--tz Europe/Rome`) and the zone gets recorded in the profile. Don't push either way — UTC is a fine default. There are no contact questions: when they send the profile, they sign in to rebase and that identifies them.
 
-   Defaults: read `git config user.name` and `git config user.email` first and propose them as defaults. Only ask for what's missing or needs confirmation. Keep the conversation short.
-
-   While confirming, mention in ONE sentence: day-based counts (active days, longest streak) are bucketed in UTC by default so nothing location-shaped leaves the machine; if they'd rather have them in their local timezone, you'll pass `--tz <IANA zone>` (e.g. `--tz Europe/Rome`) and the zone gets recorded in the profile. Don't push either way — UTC is a fine default.
-
-2. **Run prepare.** Execute, substituting collected fields:
+2. **Run prepare.** Execute:
    ```
-   node bin/apply-new.mjs prepare \
-     --name "<name>" --email "<email>" --city "<city>" --status "<status>"
+   node bin/work-profile.mjs prepare
    ```
    If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 5 (finalize re-reads the logs, so it needs the same zone).
    Show the candidate the line `… representative: …` from the output. This is the auto-selection of representative projects — 3 to 5, adaptive: flagships by significance, plus a 4th/5th slot only when a project adds a new primary type or comparable significance. `--top N` forces a fixed count if the candidate asks.
@@ -71,9 +62,8 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
 5. **Run finalize.** Execute:
    ```
-   node bin/apply-new.mjs finalize \
-     --narrative-file out/narrative.json \
-     --name "<name>" --email "<email>" --city "<city>" --status "<status>"
+   node bin/work-profile.mjs finalize \
+     --narrative-file out/narrative.json
    ```
    This writes `out/candidate.json` (for agents) and `out/profile.md` (for humans).
 
@@ -83,7 +73,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
    **Question 2 — Artifacts (optional).** Artifacts MUST belong to the specific project they are attached to. Do NOT pick URLs from the candidate's `learningTopics` or recent web searches — those are research links, not artifacts. Go through the representative projects ONE BY ONE, repoLabel by repoLabel:
 
-   - For each project, name it ("for *acme-storefront* — the e-commerce storefront — do you have a deploy URL, repo, PR or screenshot that shows THIS specific project?") and wait for the candidate's reply.
+   - For each project, name it ("for *acme-storefront* — the e-commerce storefront — do you have a deploy URL, repo or PR that shows THIS specific project?") and wait for the candidate's reply. Links only: rebase takes no attached files, so a screenshot has to be a link to somewhere it already lives.
    - If they say no for that project, move on to the next. Skipping is fine.
    - If they offer a URL, sanity-check it against the project domain you described. If it doesn't seem to match (e.g. they give a personal site URL for a creator platform), ask before attaching.
    - Never invent or guess an artifact. Confidentiality boundary stays with the candidate — never push to attach.
@@ -102,12 +92,12 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 8. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score` — show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
 
 9. **Tell them how to submit, when ready.** Do NOT submit yourself. Say:
-   > "When you're ready to submit it to Play New, close this session and run `node bin/apply-new.mjs submit --yes` from this folder. The profile stays on your machine until you send it. You can also keep it just for yourself. To see exactly what would be sent first — repository names already stripped — run `node bin/apply-new.mjs submit --dry-run`: it writes `out/payload-preview.json` and sends nothing."
+   > "When you're ready to send it to rebase, close this session and run `node bin/work-profile.mjs submit --yes` from this folder. It opens a browser tab where you sign in to rebase and press «Autorizza», so rebase knows it is you; no name, email or city is sent with the profile. A person at rebase then reads it before it counts: if they approve it, your profile earns «Verificato da rebase» and an anonymous summary can be shown to companies in the talent cloud. It is kept at most 12 months and you can delete it from your member area. The profile stays on your machine until you send it. You can also keep it just for yourself. To see exactly what would be sent first — repository names and contact already stripped — run `node bin/work-profile.mjs submit --dry-run`: it writes `out/payload-preview.json` and sends nothing."
 
-   (If the candidate prefers the shorter `apply-new submit --yes`, they can `npm link` once from the repo — but `node bin/apply-new.mjs` works without any setup.)
+   (If the candidate prefers the shorter `work-profile submit --yes`, they can `npm link` once from the repo — but `node bin/work-profile.mjs` works without any setup.)
 
 ## Notes
 
 - The candidate's Claude Code subscription is doing the LLM work here. No API key required.
-- If the candidate hasn't approved running shell commands, ask permission for the `node bin/apply-new.mjs …` invocations before executing.
-- Iteration is free: re-read `out/narrative-input.json`, rewrite `out/narrative.json`, re-run `finalize`. The deterministic pipeline doesn't need to re-run unless they change `--top` or contact fields.
+- If the candidate hasn't approved running shell commands, ask permission for the `node bin/work-profile.mjs …` invocations before executing.
+- Iteration is free: re-read `out/narrative-input.json`, rewrite `out/narrative.json`, re-run `finalize`. The deterministic pipeline doesn't need to re-run unless they change `--top` or `--tz`.

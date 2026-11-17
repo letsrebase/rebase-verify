@@ -29,18 +29,40 @@ test("buildPayload does not mutate its input", () => {
   assert.equal(input.otherProjects[0].repoLabel, "acme-experiments");
 });
 
-test("buildPayload validates schema and contact email with the original messages", () => {
+test("buildPayload validates the schema id", () => {
   assert.throws(() => buildPayload({ ...profile(), schema: "wrong/v0" }), /expected schema playnew-profile\/v1/);
-  const noEmail = profile();
-  noEmail.contact = { name: "X" };
-  assert.throws(() => buildPayload(noEmail), /missing contact\.email/);
 });
 
-test("everything except repoLabel survives byte-identical", () => {
+test("buildPayload drops contact: the sign-in identifies the person", () => {
+  const payload = buildPayload(profile());
+  assert.ok(!("contact" in payload));
+  assert.ok(!JSON.stringify(payload).includes("x@y.z"));
+});
+
+test("buildPayload accepts a profile with no contact at all", () => {
+  const input = profile();
+  delete input.contact;
+  assert.doesNotThrow(() => buildPayload(input));
+});
+
+test("buildPayload refuses a file artifact and says to use a link", () => {
+  const input = profile();
+  input.projects[0].artifact = { type: "file", path: "/tmp/shot.png" };
+  assert.throws(() => buildPayload(input), /attaches a file.*link/);
+});
+
+test("buildPayload keeps a link artifact", () => {
+  const input = profile();
+  input.projects[0].artifact = { type: "url", url: "https://example.com" };
+  assert.deepEqual(buildPayload(input).projects[0].artifact, { type: "url", url: "https://example.com" });
+});
+
+test("everything except repoLabel and contact survives byte-identical", () => {
   const input = profile();
   const payload = buildPayload(input);
   const expected = JSON.parse(JSON.stringify(input));
   delete expected.projects[0].repoLabel;
   delete expected.otherProjects[0].repoLabel;
+  delete expected.contact;
   assert.deepEqual(payload, expected);
 });
