@@ -157,7 +157,7 @@ export const AGENTS = [
     spec: ({ system } = {}) => ({
       command: "omp",
       args: ["--no-tools", "--no-rules", "--no-skills", "--no-extensions", "acp"],
-      env: ["PI_CODING_AGENT_DIR", "OPENAI_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "XAI_API_KEY"],
+      env: ["PI_CODING_AGENT_DIR"],
       systemPromptVia: "inline",
       system,
     }),

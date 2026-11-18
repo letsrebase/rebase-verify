@@ -55,6 +55,7 @@ test("specs", () => {
   const omp = get("omp").spec({ system: "S" });
   assert.deepEqual(omp.args, ["--no-tools", "--no-rules", "--no-skills", "--no-extensions", "acp"]);
   assert.equal(omp.systemPromptVia, "inline");
+  assert.deepEqual(omp.env, ["PI_CODING_AGENT_DIR"]);
   const cl = get("claude-code").spec({ system: "S" });
   assert.deepEqual(cl.sessionMeta.claudeCode.options, { tools: [], settingSources: [], persistSession: false });
   assert.ok(!cl.env.includes("ANTHROPIC_API_KEY") && !omp.env.includes("ANTHROPIC_API_KEY"));
