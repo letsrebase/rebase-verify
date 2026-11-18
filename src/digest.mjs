@@ -297,7 +297,7 @@ function stripHeredocs(text) {
 // sub-command whose executable is git. A `#` at word start opens a comment
 // (skipped to end of line), so an apostrophe in `# can't wait` never opens a
 // phantom quote that would swallow the next line's dispatch.
-function splitTopLevel(text) {
+export function splitTopLevel(text) {
   const parts = [];
   let cur = "";
   let quote = null;
