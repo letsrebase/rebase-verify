@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { buildDigest } from "../src/digest.mjs";
 import { normalizeCommand, sessionFacts, computeCodePractices, practiceSessions, recordedPracticesTz } from "../src/practices.mjs";
 
 // Events are { tool, path, cmd, err }; each becomes one assistant tool use,
@@ -44,6 +45,8 @@ test("normalizeCommand keeps the executable words up to the first flag or path",
   assert.equal(normalizeCommand("go test -run X ./..."), "go test");
   assert.equal(normalizeCommand("npm run test -- --watch"), "npm run test");
   assert.equal(normalizeCommand("ls -la"), "");
+  assert.equal(normalizeCommand("eslint ."), "eslint");
+  assert.equal(normalizeCommand("npx eslint .. --fix"), "eslint");
 });
 
 test("checks_before_commit: seen only when the check ran after the last edit", () => {
@@ -85,6 +88,9 @@ test("failure_reproduced_before_fix", () => {
   // Still failing after the edit is not a reproduction followed by a fix.
   assert.equal(seenOf([bash("pytest", { err: true }), edit("src/a.py"), bash("pytest", { err: true })], "failure_reproduced_before_fix"), false);
   assert.equal(denomOf([edit("a.py"), bash("pytest")], "failure_reproduced_before_fix"), false);
+  // The practice is about checks: only non-check failures leave the session out of the denominator.
+  for (const cmd of ["ls -la", "grep x src", "git push"]) assert.equal(denomOf([bash(cmd, { err: true })], "failure_reproduced_before_fix"), false, cmd);
+  assert.equal(denomOf([bash("grep x src", { err: true }), bash("npm test", { err: true })], "failure_reproduced_before_fix"), true);
   assert.equal(sessionFacts(session("claude-code", s)).failedCommands, 1);
 });
 
@@ -158,21 +164,29 @@ test("a practice whose field is missing is not in its denominator", () => {
   assert.equal(g.denom.tests_with_changes, true);
 });
 
+test("an edit with an empty path (codex apply_patch it could not parse) counts as a missing path", () => {
+  const f = sessionFacts(session("codex", [edit(""), bash("npm audit")]));
+  assert.equal(f.edits, 1);
+  for (const id of ["tests_with_changes", "plan_before_edit", "design_documents", "security_checks", "checks_before_commit"]) assert.equal(f.denom[id], false, id);
+});
+
 test("computeCodePractices counts seen, of, products and months in the tz and omits denominator 0", () => {
   const ok = [edit("src/a.ts"), bash("npm test"), bash("git commit -m x")];
   const stale = [bash("npm test"), edit("src/a.ts"), bash("git commit -m x")];
   const parsed = {
     sessions: [
-      // 2026-04-30T23:30Z is already May in Rome.
+      // 2026-04-30T23:30Z is already May in Rome, so Rome sees one month where UTC sees two.
       session("claude-code", ok, { cwd: "/Users/⟨user⟩/dev/alpha", ts: "2026-04-30T23:30:00.000Z", id: "a" }),
-      session("claude-code", ok, { cwd: "/Users/⟨user⟩/dev/beta", ts: "2026-06-02T10:00:00.000Z", id: "b" }),
+      session("claude-code", ok, { cwd: "/Users/⟨user⟩/dev/beta", ts: "2026-05-10T10:00:00.000Z", id: "b" }),
       session("codex", stale, { cwd: "/Users/⟨user⟩/dev/beta", ts: "2026-06-03T10:00:00.000Z", id: "c" }),
     ],
   };
+  const pick = (r) => r.items.find((i) => i.id === "checks_before_commit");
   const rome = computeCodePractices(parsed, { tz: "Europe/Rome" });
-  assert.deepEqual(rome.items.find((i) => i.id === "checks_before_commit"), { id: "checks_before_commit", method: "code", seen: 2, of: 3, products: 2, months: 2 });
-  const utc = computeCodePractices(parsed);
-  assert.equal(utc.items.find((i) => i.id === "checks_before_commit").months, 2);
+  assert.deepEqual(pick(rome), { id: "checks_before_commit", method: "code", seen: 2, of: 3, products: 2, months: 1 });
+  assert.deepEqual(pick(computeCodePractices(parsed)), { id: "checks_before_commit", method: "code", seen: 2, of: 3, products: 2, months: 2 });
+  assert.deepEqual(practiceSessions(parsed, { tz: "Europe/Rome" }).map((p) => p.month), ["2026-05", "2026-05", "2026-06"]);
+  assert.deepEqual(practiceSessions(parsed, { tz: "UTC" }).map((p) => p.month), ["2026-04", "2026-05", "2026-06"]);
   assert.deepEqual(rome.items.map((i) => i.id), ["checks_before_commit", "tests_with_changes", "plan_before_edit", "reviews_changes", "design_documents", "security_checks"]);
   assert.equal(rome.items.some((i) => i.id === "failure_reproduced_before_fix"), false);
   assert.equal(computeCodePractices({ sessions: [] }), null);
@@ -195,11 +209,30 @@ test("a session without toolUses, timestamps or messages never throws and leaves
   assert.deepEqual(Object.values(f.denom).filter(Boolean), []);
 });
 
-test("ephemeral sandboxes (/tmp/...) are not counted, so of never exceeds volume.sessions", () => {
+test("ephemeral sandboxes are not counted: the practice sessions are exactly the digest's", () => {
   const ev = [edit("src/a.ts"), bash("npm audit")];
-  const parsed = { sessions: [session("claude-code", ev, { cwd: "/tmp/sandbox/x", id: "e" }), session("claude-code", ev, { cwd: "/Users/⟨user⟩/dev/alpha", id: "r" })] };
-  assert.equal(computeCodePractices(parsed).items.find((i) => i.id === "security_checks").of, 1);
-  assert.deepEqual(practiceSessions(parsed, { tz: "UTC" }).map((p) => p.id), ["r"]);
+  const raw = session("claude-code", ev, { cwd: "", id: "raw" });
+  raw.cwdRaw = "/Users/lorenzo/dev/gamma";
+  const parsed = {
+    sessions: [
+      session("claude-code", ev, { cwd: "/tmp/sandbox/x", id: "e1" }),
+      session("claude-code", ev, { cwd: "/private/tmp/sandbox/y", id: "e2" }),
+      session("claude-code", ev, { cwd: "/var/folders/ab/T/z", id: "e3" }),
+      session("claude-code", ev, { cwd: "/Users/⟨user⟩/dev/alpha", id: "r1" }),
+      session("claude-code", ev, { cwd: "/Users/⟨user⟩/dev/alpha", id: "r2" }),
+      session("claude-code", ev, { cwd: "/Users/⟨user⟩/tmp/scratchpad-app", id: "r3" }),
+      raw,
+      session("claude-code", ev, { cwd: "", id: "empty" }),
+    ],
+  };
+  const ps = practiceSessions(parsed, { tz: "UTC" });
+  assert.deepEqual(ps.map((p) => p.id), ["r1", "r2", "r3", "raw", "empty"]);
+  const digest = buildDigest(parsed);
+  assert.equal(computeCodePractices(parsed).items.find((i) => i.id === "security_checks").of, digest.projects.reduce((n, p) => n + p.sessions, 0));
+  const byProduct = (xs) => Object.fromEntries(xs.sort().map(([k, n]) => [k, n]));
+  const counted = {};
+  for (const p of ps) counted[p.product] = (counted[p.product] || 0) + 1;
+  assert.deepEqual(byProduct(Object.entries(counted)), byProduct(digest.projects.map((p) => [p.repo, p.sessions])));
 });
 
 test("recordedPracticesTz reads the profile's recorded zone, falling back to UTC", () => {

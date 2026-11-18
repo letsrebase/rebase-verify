@@ -157,8 +157,8 @@ export const CODE_PRACTICES = [
   {
     id: "failure_reproduced_before_fix",
     method: "code",
-    definition: "A command failed, files were edited, and then the same command succeeded in the session.",
-    denominator: "Sessions where a command failed.",
+    definition: "A check command (tests, a linter, a type check or a build) failed, files were edited, and then the same check succeeded in the session.",
+    denominator: "Sessions where a check command failed.",
     needs: [CMD, PATH, ERR],
   },
   {
@@ -202,6 +202,7 @@ export const NOTES = [
   "Commands are read as recorded by the coding agent, which caps each at 240 characters, so a check at the end of a long chained command can be missed.",
   "Paths are compared lower-cased, with a backslash read as a forward slash.",
   "Leading environment assignments and the npx, uv run, python -m and pnpm exec wrappers are skipped before a command is matched.",
+  "Two runs count as the same check when their command words match: the words before the first flag or path, wrappers dropped, so a narrower run of the same check (pytest tests/a.py after pytest) is the same command.",
 ];
 
 export function practicesArtifact() {

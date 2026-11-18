@@ -33,7 +33,7 @@ export function normalizeCommand(cmd) {
   const part = subCommands(cmd).find((p) => isCheckCommand(p));
   if (!part) return "";
   const tokens = stripToExecutable(part).split(/\s+/).filter(Boolean);
-  const at = tokens.findIndex((t, i) => i > 0 && (t.startsWith("-") || /[\\/]/.test(t) || CODE_FILE.test(t)));
+  const at = tokens.findIndex((t, i) => i > 0 && (t.startsWith("-") || t === "." || t === ".." || /[\\/]/.test(t) || CODE_FILE.test(t)));
   const kept = at < 0 ? tokens : tokens.slice(0, at);
   if (kept.length) kept[0] = kept[0].toLowerCase();
   return kept.join(" ");
@@ -60,7 +60,8 @@ function readSession(session) {
   let pathOk = hasToolUses;
   uses.forEach((u, e) => {
     if (EDIT_TOOLS.has(u.name)) {
-      if (typeof u.path !== "string") pathOk = false;
+      // An empty path (codex apply_patch it could not parse) names no file.
+      if (typeof u.path !== "string" || u.path === "") pathOk = false;
       atoms.push({ e, edit: true, path: typeof u.path === "string" ? u.path : "" });
     } else if (PLAN_TOOLS.has(u.name)) {
       atoms.push({ e, plan: true });
@@ -141,7 +142,7 @@ export function sessionFacts(session) {
   const has = {
     checks_before_commit: commits > 0,
     tests_with_changes: sourceEdits > 0,
-    failure_reproduced_before_fix: failed.length > 0 && !ADAPTERS_WITHOUT.failure_reproduced_before_fix.includes(session?.source),
+    failure_reproduced_before_fix: failed.some((c) => normalizeCommand(c.cmd)) && !ADAPTERS_WITHOUT.failure_reproduced_before_fix.includes(session?.source),
     plan_before_edit: edits.length > 0,
     reviews_changes: commits + prs > 0,
     design_documents: edits.length > 0,
