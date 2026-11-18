@@ -51,6 +51,7 @@ import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
 import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
+import { computeCodePractices, practicesBlock } from "../src/practices.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -166,8 +167,9 @@ async function loadProfileInputs(out) {
   const intensity = computeIntensity(parsed, { tz });
   const distribution = computeDistribution(projects);
   const techUsage = computeTechUsage(projects, { tz });
+  const practices = practicesBlock(computeCodePractices(parsed, { tz })?.items, { tz });
   const sources = summarizeSources(parsed);
-  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources, out };
+  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, out };
 }
 
 function writeProfile(out, profile) {
@@ -182,7 +184,7 @@ function writeProfile(out, profile) {
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\nrebase-verify generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
@@ -206,7 +208,7 @@ async function cmdGenerate() {
 
   console.log(`[5/5] Assembling and saving ...\n`);
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -252,7 +254,7 @@ async function cmdFinalize() {
     console.error(`Missing ${narrativeFile}. Run rebase-verify prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -264,7 +266,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }

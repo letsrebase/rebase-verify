@@ -22,10 +22,10 @@ const RESEARCH = new Set(["Read", "Grep", "Glob", "WebSearch", "WebFetch"]);
 // the scratch ROOTS (/tmp, /var/folders, with the macOS /private alias) —
 // matching anywhere in the path silently dropped real projects under
 // directories merely named tmp/ or private/ (e.g. ~/tmp/scratchpad-app).
-const isEphemeral = (cwd) => /^\/(?:private\/)?(?:tmp|var\/folders)\//.test(cwd);
+export const isEphemeral = (cwd) => /^\/(?:private\/)?(?:tmp|var\/folders)\//.test(cwd);
 
 // Cluster sessions by product: the repo segment of the working dir.
-function repoKey(cwd) {
+export function repoKey(cwd) {
   const m = cwd.match(/\/(?:Github|github|repos?|Projects|Desktop|src|code|dev|work)\/([^/]+)/);
   if (m) return m[1];
   const parts = cwd.split("/").filter((p) => p && p !== "⟨user⟩" && p !== "Users");
@@ -274,7 +274,7 @@ const ENV_ASSIGN_RE = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\
 // heredoc is still body, and counting its text would break the lower bound).
 // A `<<` inside quoted or commented prose can over-strip the following lines —
 // that errs toward undercount, which the lower-bound contract absorbs.
-function stripHeredocs(text) {
+export function stripHeredocs(text) {
   if (!text.includes("<<")) return text;
   const out = [];
   let term = null;
@@ -297,7 +297,7 @@ function stripHeredocs(text) {
 // sub-command whose executable is git. A `#` at word start opens a comment
 // (skipped to end of line), so an apostrophe in `# can't wait` never opens a
 // phantom quote that would swallow the next line's dispatch.
-function splitTopLevel(text) {
+export function splitTopLevel(text) {
   const parts = [];
   let cur = "";
   let quote = null;

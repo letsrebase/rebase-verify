@@ -184,7 +184,7 @@ export function summarizeSources(parsed) {
 
 // --- assemble ----------------------------------------------------------------
 
-export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources }) {
+export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources }) {
   const froms = projects.map((p) => p.from).filter(Boolean).sort();
   const tos = projects.map((p) => p.to).filter(Boolean).sort();
   const selected = projects.filter((p) => p.selected);
@@ -258,6 +258,9 @@ export function assembleProfile({ contact, projects, narrative, fingerprint, for
     // Per-technology usage counts and bands (optional/nullable: absent on
     // profiles from older versions). Deterministic, so no narrative rides on it.
     techUsage: techUsage || null,
+    // Per-session counts of work practices (optional/nullable: absent on
+    // profiles from older versions). Counts only, no narrative rides on it.
+    practices: practices || null,
     trajectory: trajectory
       ? {
           // Deterministic facts (Lot 1).
@@ -399,6 +402,17 @@ export function renderMarkdown(p) {
     for (const t of u.technologies) {
       const span = t.firstMonth === t.lastMonth ? t.firstMonth : `${t.firstMonth} to ${t.lastMonth}`;
       L.push(`- ${t.name}: ${t.band} · ${t.sessions} sessions · ${t.products} ${t.products === 1 ? "product" : "products"} · ${t.months} ${t.months === 1 ? "month" : "months"} (${span})`);
+    }
+  }
+
+  if (p.practices?.items?.length) {
+    const u = p.practices;
+    const tzNote = u.timezone && u.timezone !== "UTC" ? ` (months counted in ${u.timezone})` : "";
+    L.push(`\n## How the work is done`);
+    L.push(`Counts of sessions where a practice was seen, out of the sessions where it could have been${tzNote}. Each row says how it was counted: by code, or by the person's own model.`);
+    for (const t of u.items) {
+      const how = t.method === "model" ? "classified by the person's model" : "counted by code";
+      L.push(`- ${t.id}: in ${t.seen} of ${t.of} ${t.of === 1 ? "session" : "sessions"} · ${t.products} ${t.products === 1 ? "product" : "products"} · ${t.months} ${t.months === 1 ? "month" : "months"} · ${how}`);
     }
   }
 

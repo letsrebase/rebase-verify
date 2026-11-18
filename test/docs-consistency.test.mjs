@@ -159,3 +159,38 @@ test("PRIVACY §2 and README disclose the technology-usage block and its bands",
   }
   assert.ok(/empirical/i.test(readme), "README must say the thresholds are empirical");
 });
+
+// --- work practices texts (REB-1143) -----------------------------------------
+// The README names every practice with its published definition, PRIVACY
+// discloses that the profile carries the counts, and none of the three user
+// texts uses an em dash.
+const practices = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+
+test("README lists every practice id with the first sentence of its definition", () => {
+  assert.match(readme, /^## Work practices$/m);
+  for (const p of practices.practices) {
+    assert.ok(readme.includes(p.id), `README lacks ${p.id}`);
+    const first = p.definition.split(/(?<=\.)\s|;\s/)[0].replace(/\.$/, "");
+    assert.ok(readme.includes(first), `README lacks the definition of ${p.id}`);
+  }
+});
+
+test("PRIVACY §2 discloses the practices counts", () => {
+  const s2 = privacy.slice(privacy.indexOf("## 2. What we collect"), privacy.indexOf("## 2a."));
+  assert.match(s2, /practices/i);
+  assert.match(s2, /counts/i);
+  assert.match(s2, /never commands, paths or file names/);
+});
+
+test("README and the slash command name the profile section the code writes", () => {
+  const heading = /L\.push\(`\\n## (How the work is done)`\)/.exec(profileSrc)?.[1];
+  assert.ok(heading, "src/profile.mjs no longer writes the practices heading");
+  assert.ok(readme.includes(`"${heading}"`), "README does not name the heading");
+  assert.ok(command.includes(`"${heading}"`), "slash command does not name the heading");
+});
+
+test("the three user texts use no em dash", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(!text.includes("\u2014"), `${name} contains an em dash`);
+  }
+});

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "lexicon": "node scripts/emit-tech-lexicon.mjs"
+    "lexicon": "node scripts/emit-tech-lexicon.mjs",
+    "practices": "node scripts/emit-practices.mjs"
   },
   "engines": {
     "node": ">=20"

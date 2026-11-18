@@ -66,6 +66,31 @@ At submit time everything is re-checked, not trusted: groundedness is recomputed
 
 The profile also discloses its own coverage: a `sources` block records which log sources were read, at what capture level (*full* = tamper-evident records the authenticity screen can verify; *structural* = well-formed data without a verification story), and how many sessions each contributed. The window and every count are **lower bounds** of your real activity, logs rotate and old sessions are pruned, so what the tool can still see is never more than what you did. Like the authenticity score, this is a screen, not proof.
 
+## Work practices
+
+The profile also carries counts of seven work practices. They are counted by code from the tool calls and file paths your logs already contain. No model is involved and nothing new is read. Each one is shown as "seen in N of M sessions", with the number of products and months it spans. It is never a score, a percentage or a total, and nothing here says anything about tone, skill or character. You can read the counts in the "How the work is done" section of `out/profile.md` before you submit anything. That section only appears when at least one practice could be counted in your sessions.
+
+Each practice is counted against the sessions where it could have happened (M):
+
+- `checks_before_commit`: After the last file edit before a git commit, a check ran in the session: tests, a linter, a type check or a build. M is the sessions with a commit.
+- `tests_with_changes`: Both a source file and a test file were edited in the session. M is the sessions that edited a source file.
+- `failure_reproduced_before_fix`: A check command (tests, a linter, a type check or a build) failed, files were edited, and then the same check succeeded in the session. M is the sessions where a check command failed.
+- `plan_before_edit`: A planning step came before the first file edit in the session: plan mode, a task list, or writing a plan or spec file. M is the sessions with an edit.
+- `reviews_changes`: Before a commit or a pull request, the diff appeared in the session (git diff, git show or gh pr diff), whoever asked for it; the session cannot show whether anyone read it. M is the sessions with a commit or a pull request.
+- `design_documents`: A design document (an ADR, RFC, spec or design file, by path) was written or edited in the session. M is the sessions with an edit.
+- `security_checks`: A dependency audit or a security scanner ran in the session. M is the sessions with an edit.
+
+How it is read:
+
+- **Paths.** Paths are compared lower-cased, with a backslash read as a forward slash, and read relative to the project folder of the session, so a folder above the project named `test` or `specs` changes nothing. A test file is one under a `test/`, `tests/`, `__tests__/` or `spec/` folder, or named `*.test.*`, `*.spec.*`, `*_test.*` or `test_*.py`. A design document is one under an `adr/`, `rfcs/`, `docs/rfc/`, `docs/design/` or `specs/` folder, or named `adr-*`, `*-adr.md`, `rfc*`, `design.md`, `*-design.md` or `*-spec.md`. A plan is one under a `plans/` or `specs/` folder, or named `plan.md`, `*-plan.md` or `*-spec.md`. So a spec file counts as a plan, and an ADR does not. A source file is a code file by extension: `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, `.tsx`, `.vue`, `.svelte`, `.py`, `.go`, `.rs`, `.java`, `.kt`, `.kts`, `.scala`, `.rb`, `.php`, `.cs`, `.c`, `.cc`, `.cpp`, `.h`, `.hpp`, `.swift`, `.m`, `.dart`, `.ex`, `.exs` or `.lua`. Other files such as `.sql`, `.sh`, `.html` or `.css` are not source files. A test file is never a source file, and config files (`*.config.*`), type declarations (`*.d.ts`), `conftest.py`, `setup.py` and anything under `docs/` are not counted as source files either.
+- **Commands.** rebase-verify reads each command up to its first 240 characters, so a check at the end of a long chained command can be missed. Leading environment assignments and runner wrappers such as `npx`, `uv run`, `python -m` and `pnpm exec` are skipped before a command is matched.
+- **Reviews.** `reviews_changes` means the diff appeared in the session, whoever asked for it. It does not mean anyone read it. Options that list files or statistics instead of the diff, such as `--stat` and `--name-only`, and `git show <rev>:<path>`, do not count as a diff appearing.
+- **Failures.** `failure_reproduced_before_fix` only counts failed checks. A failed command that contains a check counts as a failed check, and in a chain such as `npm test && git push` the exit status cannot say which part failed, so the chain counts as its first check. Two runs are the same check when their command words match (the words before the first flag or path, wrappers dropped), so a narrower rerun of the same check (`pytest tests/a.py` after `pytest`) is the same command. Pi and Cursor sessions are left out of this practice, because their logs cannot show a failure reliably. A session whose adapter cannot give a field for a practice is left out of that practice rather than counted as not seen.
+- **Sessions with no time.** A session with no timestamped message cannot be placed in a month, so it is left out of every practice's counts. A practice no session could show (M is 0) is left out of the profile.
+- **Counts only.** Only the counts leave your machine, never a command, a path or a file name.
+
+The full rules are in `share/practices.json`, generated from `src/practices-rules.mjs`: every command pattern, the path patterns, the source extensions, the commit and pull request patterns, and the tool names read as a planning step or an edit.
+
 ## What it isn't
 
 It isn't a personality test, and the cognitive tags are descriptive: there's no "better" tag, only different patterns. The profile doesn't compare you with anyone else, and it doesn't predict performance.
