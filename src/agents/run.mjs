@@ -45,14 +45,17 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
   };
 
   async function steps(ask, before = () => {}) {
-    onStatus({ step: "narrative" });
     before("narrative");
+    // like a practices batch: one more try, in a new session, when the answer holds no JSON or does not fit
     let narrative;
-    const text = await ask(NARRATIVE_SYSTEM, JSON.stringify(narrativeInput));
-    try {
-      narrative = validateNarrative(firstJsonObject(text), agent.id);
-    } catch (e) {
-      throw new Error(`the narrative answer cannot be used: ${e.message}`);
+    for (let attempt = 0; !narrative; attempt++) {
+      onStatus({ step: "narrative", retry: attempt > 0 });
+      const text = await ask(NARRATIVE_SYSTEM, JSON.stringify(narrativeInput));
+      try {
+        narrative = validateNarrative(firstJsonObject(text), agent.id);
+      } catch (e) {
+        if (attempt >= 1) throw new Error(`the narrative answer cannot be used: ${e.message}`);
+      }
     }
     let practicesAnswers = null;
     if (practicesInput) {

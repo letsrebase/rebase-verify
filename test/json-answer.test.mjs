@@ -19,3 +19,19 @@ test("no JSON throws NoJsonError", () => {
 test("a broken outer object never yields an inner one", () => {
   assert.throws(() => firstJsonObject('{"a": {"b": 1}, oops}'), NoJsonError);
 });
+
+test("a trailing comma before } or ] is repaired", () => {
+  assert.deepEqual(firstJsonObject('{"a":"x",\n}'), { a: "x" });
+  assert.deepEqual(firstJsonObject('here: {"a":[1,2,],"b":{"c":3,},}\nthanks'), { a: [1, 2], b: { c: 3 } });
+  assert.deepEqual(firstJsonObject('{"summary": "validated.",  },'), { summary: "validated." });
+});
+test("commas inside strings are left alone", () => {
+  assert.deepEqual(firstJsonObject('{"a":"x,}", "b":"y, ]",}'), { a: "x,}", b: "y, ]" });
+  assert.deepEqual(firstJsonObject('{"a":"say \\",}\\" now",}'), { a: 'say ",}" now' });
+});
+test("nothing else is repaired", () => {
+  for (const bad of ["{a:1}", "{'a':1}", '{"a":1 "b":2}', '{"a":1,,}', '{,"a":1}', '{"a":1} {"b":', '{"a":/*x*/1}']) {
+    if (bad === '{"a":1} {"b":') assert.deepEqual(firstJsonObject(bad), { a: 1 });
+    else assert.throws(() => firstJsonObject(bad), NoJsonError, bad);
+  }
+});

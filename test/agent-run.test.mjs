@@ -217,6 +217,41 @@ test("an answer that is not a narrative fails the run, naming the agent", async 
   assert.match(error.message, /narrative/);
 });
 
+test("a narrative answered without JSON is asked once more, in a new session; twice fails the run", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-turns-"));
+  const turns = join(dir, "turns.jsonl");
+  try {
+    const once = await run({ FAKE_NARRATIVE_BAD: "once", FAKE_TURN_LOG: turns }, { practicesInput: null });
+    assert.ifError(once.error);
+    assert.equal(once.result.narrative.summary, "Builds a web product with an AI agent.");
+    assert.equal(once.prompts.length, 2);
+    assert.equal(once.prompts[0], once.prompts[1], "the retry asks the same thing");
+    assert.ok(once.status.some((s) => s.step === "narrative" && s.retry === true));
+    const seen = readFileSync(turns, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(new Set(seen.map((t) => t.sessionId)).size, 2);
+    const twice = await run({ FAKE_NARRATIVE_BAD: "always" });
+    assert.match(twice.error.message, /Fake agent: the narrative answer cannot be used/);
+    assert.equal(twice.prompts.length, 2, "one retry, no practices turns");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a narrative that fails validation is retried too, and a trailing comma is tolerated", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-turns-"));
+  try {
+    const { error, prompts } = await run({ FAKE_SMART: "", FAKE_ANSWER: '{"summary":"only"}' }, { practicesInput: null });
+    assert.match(error.message, /narrative answer cannot be used/);
+    assert.equal(prompts.length, 2);
+    const ok = await run({ FAKE_SMART: "", FAKE_ANSWER: '{"summary":"S","cognitive":{"narrative":"C",},"projects":[],}' }, { practicesInput: null });
+    assert.ifError(ok.error);
+    assert.equal(ok.result.narrative.summary, "S");
+    assert.equal(ok.prompts.length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a tool call fails the run as tool use", async () => {
   const { error } = await run({ FAKE_TOOL: "1", FAKE_SMART: "" });
   assert.ok(error instanceof ToolUseError);

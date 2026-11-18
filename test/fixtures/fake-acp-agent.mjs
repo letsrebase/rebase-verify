@@ -14,6 +14,7 @@
 //   FAKE_SMART    answer like a profile writer: a narrative for a narrative prompt, every practice true for a
 //                 practices prompt (the last line of the prompt is the JSON input)
 //   FAKE_PRACTICES_BAD  "once" | "always": answer the first (or every) practices prompt with text that holds no JSON
+//   FAKE_NARRATIVE_BAD  "once" | "always": answer the first (or every) narrative prompt with text that holds no JSON
 //   FAKE_CHATTER  with FAKE_SMART: put prose with stray braces before and after the JSON
 //   FAKE_PROMPT_LOG  path: append one JSON line per prompt text
 //   FAKE_TURN_LOG    path: append one JSON line {sessionId, model, mode} per prompt
@@ -48,6 +49,7 @@ function configOptions() {
 }
 
 let practicesCalls = 0;
+let narrativeCalls = 0;
 function smartAnswer(promptText) {
   let input = null;
   try {
@@ -59,6 +61,8 @@ function smartAnswer(promptText) {
     if (env.FAKE_PRACTICES_BAD === "always" || (env.FAKE_PRACTICES_BAD === "once" && practicesCalls === 1)) return "I would rather not answer that.";
     body = JSON.stringify(Object.fromEntries(input.sessions.map((s) => [s.id, Object.fromEntries((input.practices ?? []).map((p) => [p, true]))])));
   } else {
+    narrativeCalls++;
+    if (env.FAKE_NARRATIVE_BAD === "always" || (env.FAKE_NARRATIVE_BAD === "once" && narrativeCalls === 1)) return "I would rather not answer that.";
     body = JSON.stringify({
       summary: "Builds a web product with an AI agent.",
       cognitive: { narrative: "Splits work into small checked steps." },
