@@ -274,7 +274,7 @@ const ENV_ASSIGN_RE = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\
 // heredoc is still body, and counting its text would break the lower bound).
 // A `<<` inside quoted or commented prose can over-strip the following lines —
 // that errs toward undercount, which the lower-bound contract absorbs.
-function stripHeredocs(text) {
+export function stripHeredocs(text) {
   if (!text.includes("<<")) return text;
   const out = [];
   let term = null;

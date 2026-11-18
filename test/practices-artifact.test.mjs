@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   practicesArtifact, CHECK_PATTERNS, SECURITY_PATTERNS, DIFF_PATTERNS,
-  TEST_PATH_PATTERNS, DESIGN_PATH_PATTERNS, PLAN_PATH_PATTERNS,
+  TEST_PATH_PATTERNS, SOURCE_EXCLUSION_PATTERNS, DESIGN_PATH_PATTERNS, PLAN_PATH_PATTERNS,
 } from "../src/practices-rules.mjs";
 
 const artifact = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
@@ -30,7 +30,10 @@ test("reviews_changes says the diff appeared in the session", () => {
 test("the rules lists equal the exported patterns' sources", () => {
   const src = (l) => l.map((x) => x.re.source);
   assert.deepEqual(artifact.rules, {
-    testPaths: src(TEST_PATH_PATTERNS), designPaths: src(DESIGN_PATH_PATTERNS), planPaths: src(PLAN_PATH_PATTERNS),
+    testPaths: src(TEST_PATH_PATTERNS), sourceExclusions: src(SOURCE_EXCLUSION_PATTERNS), designPaths: src(DESIGN_PATH_PATTERNS), planPaths: src(PLAN_PATH_PATTERNS),
     checks: src(CHECK_PATTERNS), security: src(SECURITY_PATTERNS), diff: src(DIFF_PATTERNS),
   });
+});
+test("notes publish the 240-character cap on commands", () => {
+  assert.ok(artifact.notes.some((n) => /240 characters/.test(n)));
 });

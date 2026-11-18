@@ -3,7 +3,7 @@
 // are checks, security scans, diff displays or commits. share/practices.json
 // publishes the same patterns (`npm run practices`), because a freelancer
 // consents to them; test/practices-artifact.test.mjs keeps both in step.
-import { splitTopLevel } from "./digest.mjs";
+import { splitTopLevel, stripHeredocs } from "./digest.mjs";
 
 export const RUBRIC = "rebase-practices/v1";
 
@@ -21,6 +21,15 @@ const SOURCE_EXT = [
   "kts", "scala", "rb", "php", "cs", "c", "cc", "cpp", "h", "hpp", "swift", "m", "dart", "ex", "exs", "lua",
 ];
 export const SOURCE_PATH_PATTERNS = [{ id: "code-extension", re: new RegExp(`\\.(?:${SOURCE_EXT.join("|")})$`) }];
+
+// Code-looking files that are configuration or documentation, not source.
+export const SOURCE_EXCLUSION_PATTERNS = [
+  { id: "config-file", re: /\.config\.[^/]+$/ },
+  { id: "type-declarations", re: /\.d\.[cm]?ts$/ },
+  { id: "conftest", re: /(?:^|\/)conftest\.py$/ },
+  { id: "setup-script", re: /(?:^|\/)setup\.py$/ },
+  { id: "docs-dir", re: /(?:^|\/)docs\// },
+];
 
 export const DESIGN_PATH_PATTERNS = [
   { id: "adr-dir", re: /(?:^|\/)adr\// },
@@ -47,7 +56,7 @@ const anyMatch = (patterns, s) => patterns.some(({ re }) => re.test(s));
 export const isTestPath = (path) => anyMatch(TEST_PATH_PATTERNS, norm(path));
 export const isSourcePath = (path) => {
   const p = norm(path);
-  return anyMatch(SOURCE_PATH_PATTERNS, p) && !isTestPath(p);
+  return anyMatch(SOURCE_PATH_PATTERNS, p) && !isTestPath(p) && !anyMatch(SOURCE_EXCLUSION_PATTERNS, p);
 };
 export const isDesignDocPath = (path) => anyMatch(DESIGN_PATH_PATTERNS, norm(path));
 export const isPlanPath = (path) => anyMatch(PLAN_PATH_PATTERNS, norm(path));
@@ -55,15 +64,15 @@ export const isPlanPath = (path) => anyMatch(PLAN_PATH_PATTERNS, norm(path));
 // ---- Commands ----
 
 const ENV_ASSIGN = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\\.|[^\s"'\\])*\s+)+/;
-const WRAPPER = /^(?:npx(?:\s+(?:-[-\w]+|--))*|bunx|pnpm\s+(?:exec|dlx)|npm\s+exec(?:\s+--)?|uv\s+run|poetry\s+run|pipenv\s+run|python3?\s+-m|py\s+-m)\s+/;
+const WRAPPER = /^(?:npx(?:\s+(?:-[-\w]+|--))*|bunx|pnpm\s+(?:exec|dlx)|npm\s+exec(?:\s+--)?|uv\s+run(?:\s+--?[-\w]+)*|poetry\s+run|pipenv\s+run|python3?\s+-m|py\s+-m)\s+/;
 
 // The executable position of each top-level sub-command: openers, control-flow
 // keywords, env assignments and runner prefixes (npx, uv run, python -m,
 // pnpm exec) are transparent; arguments never match.
 function executables(cmd) {
   const out = [];
-  for (const raw of splitTopLevel(String(cmd ?? ""))) {
-    let part = raw.trim().replace(/^[({\s]+/, "").replace(/^(?:do|then|else)\s+/, "").replace(ENV_ASSIGN, "");
+  for (const raw of splitTopLevel(stripHeredocs(String(cmd ?? "")))) {
+    let part = raw.trim().replace(/^[({\s]+/, "").replace(/^(?:do|then|else)\s+/, "").replace(ENV_ASSIGN, "").replace(/[)}\s]+$/, "");
     for (let i = 0; i < 3 && WRAPPER.test(part); i++) part = part.replace(WRAPPER, "");
     if (part) out.push(part);
   }
@@ -79,7 +88,7 @@ export const CHECK_PATTERNS = [
   { id: "pytest", re: new RegExp(String.raw`^(?:py\.test|pytest)${END}`) },
   { id: "ruff", re: new RegExp(String.raw`^ruff\s+check${END}`) },
   { id: "mypy", re: new RegExp(String.raw`^(?:mypy|pyright|flake8|pylint)${END}`) },
-  { id: "go-test", re: new RegExp(String.raw`^go\s+(?:test|vet)${END}`) },
+  { id: "go-test", re: new RegExp(String.raw`^go\s+(?:test|vet|build)${END}`) },
   { id: "golangci-lint", re: new RegExp(String.raw`^golangci-lint\s+run${END}`) },
   { id: "cargo", re: new RegExp(String.raw`^cargo\s+(?:test|clippy|check|build|nextest)${END}`) },
   { id: "maven", re: new RegExp(String.raw`^(?:mvn|\./mvnw)\s+(?:\S+\s+)*?(?:test|verify|package)${END}`) },
@@ -105,7 +114,9 @@ export const SECURITY_PATTERNS = [
 ];
 
 export const DIFF_PATTERNS = [
-  { id: "git-diff", re: new RegExp(String.raw`^${GIT}\s+(?:diff|show)${END}`) },
+  // `--stat`, `--name-only` and `git show <rev>:<path>` do not display a diff.
+  { id: "git-diff", re: new RegExp(String.raw`^${GIT}\s+diff${END}(?!.*\s--(?:stat|numstat|shortstat|name-only|name-status)\b)`) },
+  { id: "git-show", re: new RegExp(String.raw`^${GIT}\s+show${END}(?!.*\s--(?:stat|numstat|shortstat|name-only|name-status)\b)(?!.*\s[^\s-]\S*:\S)`) },
   { id: "gh-pr-diff", re: new RegExp(String.raw`^gh\s+pr\s+diff${END}`) },
 ];
 
@@ -181,12 +192,20 @@ export const ADAPTERS_WITHOUT = { failure_reproduced_before_fix: ["pi", "cursor"
 
 const sources = (patterns) => patterns.map(({ re }) => re.source);
 
+export const NOTES = [
+  "Commands are read as recorded by the coding agent, which caps each at 240 characters, so a check at the end of a long chained command can be missed.",
+  "Paths are compared lower-cased, with a backslash read as a forward slash.",
+  "Leading environment assignments and the npx, uv run, python -m and pnpm exec wrappers are skipped before a command is matched.",
+];
+
 export function practicesArtifact() {
   return {
     rubric: RUBRIC,
+    notes: NOTES,
     practices: CODE_PRACTICES.map(({ id, method, definition, denominator }) => ({ id, method, definition, denominator })),
     rules: {
       testPaths: sources(TEST_PATH_PATTERNS),
+      sourceExclusions: sources(SOURCE_EXCLUSION_PATTERNS),
       designPaths: sources(DESIGN_PATH_PATTERNS),
       planPaths: sources(PLAN_PATH_PATTERNS),
       checks: sources(CHECK_PATTERNS),

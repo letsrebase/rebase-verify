@@ -1,4 +1,9 @@
 {
+  "notes": [
+    "Commands are read as recorded by the coding agent, which caps each at 240 characters, so a check at the end of a long chained command can be missed.",
+    "Paths are compared lower-cased, with a backslash read as a forward slash.",
+    "Leading environment assignments and the npx, uv run, python -m and pnpm exec wrappers are skipped before a command is matched."
+  ],
   "practices": [
     {
       "definition": "After the last file edit before a git commit, a check ran in the session: tests, a linter, a type check or a build.",
@@ -49,7 +54,7 @@
       "^(?:py\\.test|pytest)(?=\\s|$)",
       "^ruff\\s+check(?=\\s|$)",
       "^(?:mypy|pyright|flake8|pylint)(?=\\s|$)",
-      "^go\\s+(?:test|vet)(?=\\s|$)",
+      "^go\\s+(?:test|vet|build)(?=\\s|$)",
       "^golangci-lint\\s+run(?=\\s|$)",
       "^cargo\\s+(?:test|clippy|check|build|nextest)(?=\\s|$)",
       "^(?:mvn|\\.\\/mvnw)\\s+(?:\\S+\\s+)*?(?:test|verify|package)(?=\\s|$)",
@@ -77,7 +82,8 @@
       "(?:^|\\/)[^/]*-spec\\.md$"
     ],
     "diff": [
-      "^git(?:\\s+(?:-C\\s+\\S+|-c\\s+\\S+|--no-pager))*\\s+(?:diff|show)(?=\\s|$)",
+      "^git(?:\\s+(?:-C\\s+\\S+|-c\\s+\\S+|--no-pager))*\\s+diff(?=\\s|$)(?!.*\\s--(?:stat|numstat|shortstat|name-only|name-status)\\b)",
+      "^git(?:\\s+(?:-C\\s+\\S+|-c\\s+\\S+|--no-pager))*\\s+show(?=\\s|$)(?!.*\\s--(?:stat|numstat|shortstat|name-only|name-status)\\b)(?!.*\\s[^\\s-]\\S*:\\S)",
       "^gh\\s+pr\\s+diff(?=\\s|$)"
     ],
     "planPaths": [
@@ -91,6 +97,13 @@
       "^(?:pip-audit|safety\\s+check|bandit)(?=\\s|$)",
       "^cargo\\s+(?:audit|deny)(?=\\s|$)",
       "^(?:trivy|semgrep|gitleaks|trufflehog|snyk|grype|osv-scanner|brakeman|bundler-audit|govulncheck)(?=\\s|$)"
+    ],
+    "sourceExclusions": [
+      "\\.config\\.[^/]+$",
+      "\\.d\\.[cm]?ts$",
+      "(?:^|\\/)conftest\\.py$",
+      "(?:^|\\/)setup\\.py$",
+      "(?:^|\\/)docs\\/"
     ],
     "testPaths": [
       "(?:^|\\/)(?:tests?|__tests__|spec)\\/",
