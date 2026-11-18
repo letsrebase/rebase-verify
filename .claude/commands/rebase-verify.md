@@ -89,9 +89,9 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
    **Question 4: Narrative refinements.** Ask if anything in the summary, cognitive narrative, trajectory narrative, or per-project text reads off. If yes, rewrite `out/narrative.json` (same hard rules) and run finalize again.
 
 7. **Classify the model practices, only when `out/practices-input.json` exists.** If the file is not there, skip this step. Before you read anything, tell the candidate in plain words:
-   - which practices are classified: the ids listed under `practices` in `out/practices-input.json`, each with its definition;
+   - which practices are classified: the ids listed under `practices` in `out/practices-input.json`, each with its definition and examples (what counts and what does not);
    - that only their own messages are read, from the sampled sessions (at most 60 sessions, 12 messages each, already redacted), never the agent's answers or any file;
-   - that it is their own model, this agent, that answers, so nothing goes to a third party;
+   - that the model they are already using here answers, and rebase never receives the messages, only the counts;
    - that only the counts leave their machine ("seen in N of M sessions"), while the per-session answers stay in `out/practices-detail.json`, which is never sent.
 
    Then read `out/practices-input.json` and write `out/practices.json`: exactly one object per session id (`s01`, `s02`, …) and, in it, exactly one boolean per practice id. No other keys, no reasons, no quotes. Apply each definition as written, answer `false` when in doubt, and never let tone, feelings, politeness or wording quality count as a reason for `true`. Example for two practices and two sessions:
@@ -100,7 +100,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
    ```
    Run `finalize` (step 5) again so the counts are merged; it checks the file and stops with a message if it does not fit.
 
-8. **Clean up.** Delete `out/narrative-input.json`, `out/practices-input.json` and `out/practices-sample.json` (when present; keep `out/practices-detail.json` and `out/practices.json` only if the candidate wants them) once the candidate is satisfied (it contains local repo context with real names). Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
+8. **Clean up.** Delete `out/narrative-input.json`, `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json` (when present) once the candidate is satisfied (they contain local repo context or the candidate's own messages; the answers and the sample go together, because `finalize` needs both). `out/practices-detail.json` may stay as the candidate's own record. Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
 
 9. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score`: show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
 

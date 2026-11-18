@@ -74,7 +74,12 @@ export function sampleSessions(parsed, { tz = DEFAULT_TZ } = {}) {
 export function buildPracticesInput(parsed, { tz = DEFAULT_TZ, practices = [], sample = sampleSessions(parsed, { tz }) } = {}) {
   return {
     rubric: RUBRIC,
-    practices: practices.map((p) => ({ id: p.id, definition: p.definition })),
+    practices: practices.map((p) => ({
+      id: p.id,
+      definition: p.definition,
+      ...(p.positive ? { positive: p.positive } : {}),
+      ...(p.negative ? { negative: p.negative } : {}),
+    })),
     sessions: sample.map((s) => ({ id: s.id, messages: s.messages })),
   };
 }

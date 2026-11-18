@@ -61,3 +61,22 @@ test("no key writes nothing and prints the hint; a key classifies, warns and mer
   assert.equal(item.seen, 3);
   assert.equal(item.of, 3);
 });
+
+import { buildPracticesInput } from "../src/practices-sample.mjs";
+
+test("examples reach the prompt from the input file; the batch payload is minimal", async () => {
+  const msgs = (n) => Array.from({ length: n }, (_, i) => ({ role: "user", textRedacted: `message ${i}` }));
+  const t0 = Date.parse("2026-01-05T10:00:00Z");
+  const parsed = { sessions: [{ id: "REAL-SESSION-ID", source: "claude-code", cwdRedacted: "/w/a", messages: msgs(3).map((m, i) => ({ ...m, ts: new Date(t0 + i * 1000).toISOString() })) }] };
+  const practices = [{ id: "asks_for_alternatives", method: "model", definition: "d1", positive: ["EXAMPLE-YES"], negative: ["EXAMPLE-NO"] }];
+  const input = buildPracticesInput(parsed, { tz: "UTC", practices, sample: [{ id: "s01", messages: ["hi", "there"] }] });
+  const prompt = practicesPrompt(input.practices);
+  assert.ok(prompt.includes("EXAMPLE-YES") && prompt.includes("EXAMPLE-NO"));
+  const users = [];
+  await classifyPractices(input, { call: ({ user }) => { users.push(user); return Promise.resolve('{"s01":{"asks_for_alternatives":true}}'); } });
+  const u = JSON.parse(users[0]);
+  assert.deepEqual(Object.keys(u).sort(), ["practices", "sessions"]);
+  assert.deepEqual(u.practices, ["asks_for_alternatives"]);
+  assert.deepEqual(u.sessions, [{ id: "s01", messages: ["hi", "there"] }]);
+  assert.ok(!users[0].includes("REAL-SESSION-ID"));
+});
