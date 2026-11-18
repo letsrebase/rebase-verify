@@ -3,7 +3,8 @@
 // a run leaves behind.
 import { closeSync, existsSync, lstatSync, openSync, readSync, readdirSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, delimiter, join } from "node:path";
+import { basename, join } from "node:path";
+import { AGENT_RUN_MARKER } from "../agent-run.mjs";
 import { MODEL } from "../profile-llm.mjs";
 
 const NO_TOOLS_INSTRUCTION = "Do not use any tool. Answer only from the text in this message.";
@@ -11,33 +12,48 @@ const NO_TOOLS_INSTRUCTION = "Do not use any tool. Answer only from the text in 
 const homeOf = (ctx = {}) => ctx.home ?? ctx.env?.HOME ?? ctx.env?.USERPROFILE ?? process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const envOf = (ctx = {}) => ctx.env ?? process.env;
 
+// An empty value counts as unset.
 function envGet(env, name) {
-  if (env[name] !== undefined) return env[name];
-  const k = Object.keys(env).find((x) => x.toUpperCase() === name.toUpperCase());
-  return k === undefined ? undefined : env[k];
+  let v = env[name];
+  if (v === undefined) {
+    const k = Object.keys(env).find((x) => x.toUpperCase() === name.toUpperCase());
+    v = k === undefined ? undefined : env[k];
+  }
+  return v === undefined || v === "" ? undefined : v;
 }
 
 /** True when `name` is an executable file on PATH. Never runs it. */
-export function onPath(name, env = process.env) {
-  const dirs = (envGet(env, "PATH") ?? "").split(delimiter).filter(Boolean);
-  const win = process.platform === "win32";
+export function onPath(name, env = process.env, platform = process.platform) {
+  const win = platform === "win32";
+  const dirs = (envGet(env, "PATH") ?? "")
+    .split(win ? ";" : ":")
+    .map((d) => (win ? d.replace(/^"(.*)"$/, "$1") : d))
+    .filter(Boolean);
   const exts = win ? ["", ...(envGet(env, "PATHEXT") ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)] : [""];
   for (const d of dirs) {
     for (const e of exts) {
       try {
-        const p = join(d, name + e);
-        if (statSync(p).isFile()) return true;
+        const st = statSync(join(d, name + e));
+        if (st.isFile() && (win || (st.mode & 0o111) !== 0)) return true;
       } catch {}
     }
   }
   return false;
 }
 
-function detector({ bins, homeDirs = [], homeFiles = [] }) {
+function detector({ bins, homeDirs = [], homeFiles = [], envDirs = [], envFiles = [] }) {
   return (ctx = {}) => {
     const env = envOf(ctx);
     const home = homeOf(ctx);
     for (const b of bins) if (onPath(b, env)) return { installed: true, how: `${b} on PATH` };
+    for (const v of envDirs) {
+      const d = envGet(env, v);
+      if (d && existsSync(d)) return { installed: true, how: `${v} exists` };
+    }
+    for (const [v, f] of envFiles) {
+      const d = envGet(env, v);
+      if (d && existsSync(join(d, f))) return { installed: true, how: `${v}/${f} exists` };
+    }
     for (const d of homeDirs) if (existsSync(join(home, d))) return { installed: true, how: `~/${d} exists` };
     for (const f of homeFiles) if (existsSync(join(home, f))) return { installed: true, how: `~/${f} exists` };
     return { installed: false, how: "not found" };
@@ -47,7 +63,19 @@ function detector({ bins, homeDirs = [], homeFiles = [] }) {
 // ---- cleanup helpers: never follow symlinks, match on the run dir basename only
 function runName(runDir) {
   const n = basename(String(runDir ?? "").replace(/[\\/]+$/, ""));
-  return n || null;
+  return n.startsWith(AGENT_RUN_MARKER) && n.length > AGENT_RUN_MARKER.length ? n : null;
+}
+
+// the whole run name as one token: not glued to more name characters
+function hasToken(text, name) {
+  let i = text.indexOf(name);
+  while (i >= 0) {
+    const before = text[i - 1];
+    const after = text[i + name.length];
+    if (!(before && /[A-Za-z0-9]/.test(before)) && !(after && /[A-Za-z0-9]/.test(after))) return true;
+    i = text.indexOf(name, i + 1);
+  }
+  return false;
 }
 
 function removeOmp(runDir, ctx) {
@@ -62,7 +90,7 @@ function removeOmp(runDir, ctx) {
   }
   const removed = [];
   for (const e of entries) {
-    if (!e.name.includes(name)) continue;
+    if (!hasToken(e.name, name)) continue;
     const p = join(root, e.name);
     try {
       const st = lstatSync(p);
@@ -75,19 +103,50 @@ function removeOmp(runDir, ctx) {
   return removed;
 }
 
+const FIRST_LINE_CAP = 1024 * 1024;
+
+// First line of a file, read in chunks up to 1 MiB. `complete` is false when
+// no newline showed up within the cap.
 function firstLine(file) {
   let fd;
   try {
     fd = openSync(file, "r");
-    const buf = Buffer.alloc(65536);
-    const n = readSync(fd, buf, 0, buf.length, 0);
-    const s = buf.toString("utf8", 0, n);
-    const i = s.indexOf("\n");
-    return i < 0 ? s : s.slice(0, i);
+    const chunk = Buffer.alloc(65536);
+    const parts = [];
+    let pos = 0;
+    while (pos < FIRST_LINE_CAP) {
+      const n = readSync(fd, chunk, 0, chunk.length, pos);
+      if (n <= 0) break;
+      const i = chunk.subarray(0, n).indexOf(10);
+      if (i >= 0) {
+        parts.push(Buffer.from(chunk.subarray(0, i)));
+        return { text: Buffer.concat(parts).toString("utf8"), complete: true };
+      }
+      parts.push(Buffer.from(chunk.subarray(0, n)));
+      pos += n;
+    }
+    return { text: Buffer.concat(parts).toString("utf8"), complete: pos < FIRST_LINE_CAP };
   } catch {
-    return "";
+    return { text: "", complete: false };
   } finally {
     if (fd !== undefined) try { closeSync(fd); } catch {}
+  }
+}
+
+function recordedCwd({ text, complete }) {
+  if (complete) {
+    try {
+      const j = JSON.parse(text);
+      const c = j?.payload?.cwd ?? j?.cwd;
+      if (typeof c === "string") return c;
+    } catch {}
+  }
+  const m = /"cwd"\s*:\s*("(?:[^"\\]|\\.)*")/.exec(text);
+  if (!m) return undefined;
+  try {
+    return JSON.parse(m[1]);
+  } catch {
+    return undefined;
   }
 }
 
@@ -113,14 +172,8 @@ function removeCodex(runDir, ctx) {
   const removed = [];
   for (const f of walkFiles(join(codexHome, "sessions"))) {
     if (!/^rollout-.*\.jsonl$/.test(basename(f))) continue;
-    let cwd;
-    try {
-      const j = JSON.parse(firstLine(f));
-      cwd = j?.payload?.cwd ?? j?.cwd;
-    } catch {
-      continue;
-    }
-    if (typeof cwd !== "string" || !cwd.includes(name)) continue;
+    const cwd = recordedCwd(firstLine(f));
+    if (typeof cwd !== "string" || !hasToken(cwd, name)) continue;
     try {
       rmSync(f, { force: true });
       removed.push(f);
@@ -171,7 +224,7 @@ export const AGENTS = [
     kind: "acp",
     tested: true,
     source: "claude-code",
-    detect: detector({ bins: ["claude"], homeDirs: [".claude"] }),
+    detect: detector({ bins: ["claude"], homeDirs: [".claude"], envDirs: ["CLAUDE_CONFIG_DIR"] }),
     spec: ({ system } = {}) => ({
       command: "npx",
       args: ["-y", "@agentclientprotocol/claude-agent-acp@0.108.1"],
@@ -190,7 +243,7 @@ export const AGENTS = [
     kind: "acp",
     tested: true,
     source: "codex",
-    detect: detector({ bins: ["codex"], homeFiles: [".codex/auth.json"] }),
+    detect: detector({ bins: ["codex"], homeFiles: [".codex/auth.json"], envFiles: [["CODEX_HOME", "auth.json"]] }),
     spec: ({ system } = {}) => ({
       command: "npx",
       args: ["-y", "@agentclientprotocol/codex-acp@2.7.0"],

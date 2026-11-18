@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENTS, availableAgents, defaultAgent } from "../src/agents/registry.mjs";
+import { AGENTS, availableAgents, defaultAgent, onPath } from "../src/agents/registry.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "reg-"));
 const sep = process.platform === "win32" ? ";" : ":";
@@ -104,4 +104,87 @@ test("codex cleanup reads the first line cwd only", () => {
   writeFileSync(sneaky, line("/home/dev/work") + "\n" + line(run) + "\n");
   assert.deepEqual(get("codex").cleanup(run, { home, env: {} }), [mine]);
   assert.ok(!existsSync(mine) && existsSync(other) && existsSync(sneaky));
+});
+
+test("cleanup refuses names without the run marker", () => {
+  const home = tmp();
+  const root = join(home, ".omp", "agent", "sessions");
+  const keep = join(root, "--tmp-rebase-verify-agent-run-abc--");
+  mkdirSync(keep, { recursive: true });
+  const dir = join(home, ".codex", "sessions");
+  mkdirSync(dir, { recursive: true });
+  const f = join(dir, "rollout-9.jsonl");
+  writeFileSync(f, JSON.stringify({ payload: { cwd: "/home/x/projects" } }) + "\n");
+  for (const bad of ["/tmp", ".", "..", "/home/x/projects", "", "/tmp/rebase-verify-agent-run-"]) {
+    assert.deepEqual(get("omp").cleanup(bad, { home }), [], bad);
+    assert.deepEqual(get("codex").cleanup(bad, { home, env: {} }), [], bad);
+  }
+  assert.ok(existsSync(keep) && existsSync(f));
+});
+
+test("cleanup matches the whole run name, not a prefix", () => {
+  const home = tmp();
+  const root = join(home, ".omp", "agent", "sessions");
+  const longer = join(root, "--tmp-rebase-verify-agent-run-abc--");
+  const exact = join(root, "--tmp-rebase-verify-agent-run-ab--");
+  mkdirSync(longer, { recursive: true });
+  mkdirSync(exact, { recursive: true });
+  const dir = join(home, ".codex", "sessions");
+  mkdirSync(dir, { recursive: true });
+  const cl = join(dir, "rollout-1.jsonl");
+  const ce = join(dir, "rollout-2.jsonl");
+  writeFileSync(cl, JSON.stringify({ payload: { cwd: "/tmp/rebase-verify-agent-run-abc" } }) + "\n");
+  writeFileSync(ce, JSON.stringify({ payload: { cwd: "/tmp/rebase-verify-agent-run-ab" } }) + "\n");
+  const run = "/tmp/rebase-verify-agent-run-ab";
+  assert.deepEqual(get("omp").cleanup(run, { home }), [exact]);
+  assert.deepEqual(get("codex").cleanup(run, { home, env: {} }), [ce]);
+  assert.ok(existsSync(longer) && existsSync(cl));
+});
+
+test("codex cleanup handles a 100 KB first line", () => {
+  const home = tmp();
+  const dir = join(home, ".codex", "sessions");
+  mkdirSync(dir, { recursive: true });
+  const run = "/tmp/rebase-verify-agent-run-big1";
+  const big = join(dir, "rollout-big.jsonl");
+  writeFileSync(big, JSON.stringify({ type: "session_meta", payload: { cwd: run, pad: "x".repeat(100000) } }) + "\n");
+  const big2 = join(dir, "rollout-big2.jsonl");
+  writeFileSync(big2, JSON.stringify({ type: "session_meta", payload: { pad: "x".repeat(100000), cwd: "/home/dev/work" } }) + "\n");
+  assert.deepEqual(get("codex").cleanup(run, { home, env: {} }), [big]);
+  assert.ok(existsSync(big2));
+});
+
+test("empty CODEX_HOME and CLAUDE_CONFIG_DIR count as unset; set ones are honoured", () => {
+  const home = tmp();
+  const env = { PATH: "", CODEX_HOME: "", CLAUDE_CONFIG_DIR: "" };
+  assert.equal(get("codex").detect({ env, home }).installed, false);
+  assert.equal(get("claude-code").detect({ env, home }).installed, false);
+  const ch = tmp();
+  writeFileSync(join(ch, "auth.json"), "{}");
+  assert.equal(get("codex").detect({ env: { PATH: "", CODEX_HOME: ch }, home }).installed, true);
+  assert.equal(get("claude-code").detect({ env: { PATH: "", CLAUDE_CONFIG_DIR: tmp() }, home }).installed, true);
+  // cleanup honours CODEX_HOME
+  const run = "/tmp/rebase-verify-agent-run-ch1";
+  mkdirSync(join(ch, "sessions"));
+  const f = join(ch, "sessions", "rollout-1.jsonl");
+  writeFileSync(f, JSON.stringify({ payload: { cwd: run } }) + "\n");
+  assert.deepEqual(get("codex").cleanup(run, { home, env: { CODEX_HOME: ch } }), [f]);
+});
+
+test("onPath: exec bit, PATHEXT, quotes, unreadable and file entries", () => {
+  const d = tmp();
+  const f = join(d, "tool");
+  writeFileSync(f, "");
+  chmodSync(f, 0o644);
+  if (process.platform !== "win32") {
+    assert.equal(onPath("tool", { PATH: d }, "linux"), false);
+    chmodSync(f, 0o755);
+    assert.equal(onPath("tool", { PATH: d }, "linux"), true);
+  }
+  assert.equal(onPath("tool", { PATH: join(d, "tool") }, "linux"), false); // entry is a file
+  assert.equal(onPath("tool", { PATH: join(d, "missing") + ":" + d }, "linux"), process.platform !== "win32");
+  writeFileSync(join(d, "wintool.CMD"), "");
+  assert.equal(onPath("wintool", { PATH: d, PATHEXT: ".EXE;.CMD" }, "win32"), true);
+  assert.equal(onPath("wintool", { PATH: d, PATHEXT: ".EXE" }, "win32"), false);
+  assert.equal(onPath("wintool", { PATH: `"${d}"`, PATHEXT: ".CMD" }, "win32"), true);
 });
