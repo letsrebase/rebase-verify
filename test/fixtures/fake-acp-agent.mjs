@@ -17,6 +17,8 @@
 //   FAKE_CHATTER  with FAKE_SMART: put prose with stray braces before and after the JSON
 //   FAKE_PROMPT_LOG  path: append one JSON line per prompt text
 //   FAKE_TURN_LOG    path: append one JSON line {sessionId, model, mode} per prompt
+//   FAKE_CLOSE    "1" | "error": advertise sessionCapabilities.close and answer session/close (or fail it)
+//   FAKE_STRAY    before each answer, send a tool_call and a text chunk for a session id that is not the prompt's
 // Every session/new opens a fresh session (its own id, default model and mode).
 import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
@@ -69,7 +71,7 @@ const waitCancel = (signalBox) => new Promise((resolve) => (signalBox.resolve = 
 
 const INIT = {
   protocolVersion: 1,
-  agentCapabilities: {},
+  agentCapabilities: env.FAKE_CLOSE ? { sessionCapabilities: { close: {} } } : {},
   authMethods: [],
   agentInfo: { name: "fake", version: "0" },
   _meta: { account: "secret@example.com" },
@@ -90,6 +92,10 @@ const app = acp.agent({ name: "fake-acp-agent" })
     state.mode = modes[0] ?? null;
     return { sessionId: `s${++state.sessions}`, configOptions: configOptions() };
   })
+  .onRequest("session/close", async () => {
+    if (env.FAKE_CLOSE === "error") throw new acp.RequestError(-32603, "close failed");
+    return {};
+  })
   .onRequest("session/set_config_option", async ({ params }) => {
     if (params.configId === "model") state.model = params.value;
     if (params.configId === "mode") state.mode = params.value;
@@ -107,6 +113,10 @@ const app = acp.agent({ name: "fake-acp-agent" })
     const update = (u) => client.notify("session/update", { sessionId: params.sessionId, update: u });
     const promptText = params.prompt.map((b) => b.text ?? "").join("");
     if (env.FAKE_TURN_LOG) appendFileSync(env.FAKE_TURN_LOG, JSON.stringify({ sessionId: params.sessionId, model: state.model, mode: state.mode }) + "\n");
+    if (env.FAKE_STRAY) {
+      await client.notify("session/update", { sessionId: "stray", update: { sessionUpdate: "tool_call", toolCallId: "stray-t", title: "Stray tool", kind: "execute", status: "pending" } });
+      await client.notify("session/update", { sessionId: "stray", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "STRAY" } } });
+    }
     if (env.FAKE_PROMPT_LOG) appendFileSync(env.FAKE_PROMPT_LOG, JSON.stringify(promptText) + "\n");
     if (env.FAKE_EXIT === "prompt") {
       process.stderr.write("boom: died mid-turn\n");

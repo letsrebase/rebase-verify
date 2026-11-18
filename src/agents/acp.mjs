@@ -219,6 +219,8 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
         return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
       })
       .onNotification("session/update", ({ params }) => {
+        // an update from a session that is not the current one (an earlier one, once renewed) counts for nothing
+        if (sessionId !== null && params.sessionId !== sessionId) return;
         const u = params.update;
         emit({ ...u, kind: u.sessionUpdate });
         if (turn && u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text") turn.text += u.content.text;
@@ -246,7 +248,7 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
     signal?.addEventListener("abort", onAbort, { once: true });
 
     emit({ kind: "started", pid: child.pid, cwd });
-    await call("initialize", { protocolVersion: 1, clientInfo: { name: "rebase-verify", version: "0" }, clientCapabilities: {} });
+    const init = await call("initialize", { protocolVersion: 1, clientInfo: { name: "rebase-verify", version: "0" }, clientCapabilities: {} });
     const meta = { ...(spec.sessionMeta ?? {}) };
     const params = { cwd, mcpServers: [], ...(spec.sessionParams ?? {}) };
     if (spec.system && spec.systemPromptVia === "meta") meta.systemPrompt = spec.system;
@@ -289,8 +291,19 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
       },
       // A new session on the same process: the next turn sees nothing of the earlier ones.
       async renew() {
-        pendingTrip = null;
+        if (pendingTrip) throw new ToolUseError(pendingTrip);
         seenTools.clear();
+        if (init?.agentCapabilities?.sessionCapabilities?.close && sessionId) {
+          // best effort: the agent may drop the old session's state; a slow or failing close never stops the run
+          let timer;
+          try {
+            await Promise.race([call("session/close", { sessionId }), new Promise((r) => (timer = setTimeout(r, 2000)))]);
+          } catch {
+            // ignored
+          } finally {
+            clearTimeout(timer);
+          }
+        }
         await open();
         emit({ kind: "session-renewed", sessionId });
       },

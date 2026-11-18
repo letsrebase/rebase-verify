@@ -318,10 +318,47 @@ test("renew opens a fresh session on the same process with the chosen model and 
   }
 });
 
-test("a tool seen in one session does not fail the next one after renew", () =>
+test("a tool call during a turn fails that turn with ToolUseError", () =>
   run({ FAKE_TOOL: "1" }, null, {}, async (a) => {
     await assert.rejects(a.prompt("x", {}), ToolUseError);
   }));
+
+test("renew refuses to start over after a tool event, and keeps refusing", () =>
+  run({ FAKE_LATE_TOOL: "1" }, null, {}, async (a, { events, logFile }) => {
+    await a.prompt("first", {});
+    await new Promise((resolve) => {
+      const t = setInterval(() => events.some((e) => e.kind === "tool_call") && (clearInterval(t), resolve()), 5);
+    });
+    await assert.rejects(a.renew(), ToolUseError);
+    await assert.rejects(a.renew(), ToolUseError);
+    const created = readFileSync(logFile, "utf8").split("\n").filter((l) => l.includes('"session/new"') && l.includes('"dir":"out"'));
+    assert.equal(created.length, 1, "no new session was opened");
+  }));
+
+test("updates for a session that is not the current one add no text and trip nothing", () =>
+  run({ FAKE_STRAY: "1", FAKE_ANSWER: "real" }, null, {}, async (a, { events }) => {
+    const r = await a.prompt("x", {});
+    assert.equal(r.text, "real");
+    await a.renew();
+    assert.equal((await a.prompt("y", {})).text, "real");
+    assert.ok(!events.some((e) => e.kind === "tool_call" || e.kind === "tool-tripped"));
+  }));
+
+test("renew closes the previous session first when the agent advertises it, and survives a failing close", async () => {
+  const sentMethods = (logFile) =>
+    readFileSync(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((l) => l.dir === "out" && l.msg?.method).map((l) => [l.msg.method, l.msg.params?.sessionId]);
+  for (const close of ["1", "error"]) {
+    await run({ FAKE_CLOSE: close }, null, {}, async (a, { logFile }) => {
+      await a.renew();
+      assert.deepEqual(sentMethods(logFile).filter(([m]) => m.startsWith("session/") && m !== "session/set_config_option").map(([m, id]) => `${m}${id ? `:${id}` : ""}`), ["session/new", "session/close:s1", "session/new"]);
+      assert.equal((await a.prompt("x", {})).text, "ok");
+    });
+  }
+  await run({}, null, {}, async (a, { logFile }) => {
+    await a.renew();
+    assert.ok(!sentMethods(logFile).some(([m]) => m === "session/close"), "not advertised, not sent");
+  });
+});
 
 test("windowsCommandLine quotes args as one string", () =>
   assert.equal(windowsCommandLine("npx", ["-y", "pkg@1", "a b", 'q"x']), 'npx -y pkg@1 "a b" "q""x"'));
