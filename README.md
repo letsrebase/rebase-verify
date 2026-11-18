@@ -10,9 +10,23 @@ This tool makes it visible. You run it on your laptop, you see the profile befor
 
 ## You'll need
 
-Node 20 or newer, Claude Code installed, and a Claude subscription (Pro, Max, or Enterprise). No API key.
+Node 20 or newer, one coding agent installed and signed in (or an Anthropic API key), and a terminal. Nothing to clone.
 
 ## How it goes
+
+```
+npx rebase-verify
+```
+
+On a terminal this starts a short wizard. It lists the sources it found in your logs, asks which coding agent should write the narrative and classify the practices (the default is the tested agent with most sessions in your logs, on that agent's current model), shows a consent note, then runs with live progress. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents (plus working files described under "Work practices" and "Commands"). The wizard ends with a summary and a choice: submit now or later. You can keep the profile for yourself.
+
+To submit later:
+
+```
+npx rebase-verify submit --yes
+```
+
+The second way is the Claude Code slash command from a clone. It uses your Claude Code session as the agent and records `slash-command` as the agent in the profile:
 
 ```
 git clone https://github.com/letsrebase/rebase-verify
@@ -21,11 +35,27 @@ claude
 > /rebase-verify
 ```
 
-The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents (plus working files described under "Work practices" and "Commands"). Submission is a second step. You can keep the profile for yourself.
+Then `node bin/rebase-verify.mjs submit --yes`.
 
-```
-node bin/rebase-verify.mjs submit --yes
-```
+## Which agent writes and classifies
+
+The narrative and the four model practices are written by a coding agent you choose, started over ACP (the Agent Client Protocol). Each turn (the narrative, then each batch of 10 sessions) runs in its own agent session, with a minimal environment: no API keys unless the agent needs its own.
+
+| Agent | How it is started | Tools | Transcript of the run | Tested |
+|---|---|---|---|---|
+| oh-my-pi | `omp acp`, natively | switched off | oh-my-pi keeps one; rebase-verify removes it and never reads it | yes |
+| Claude Code | the adapter `@agentclientprotocol/claude-agent-acp`, downloaded with npx when picked | switched off | none kept; it leaves an empty folder that rebase-verify removes | yes |
+| Codex | the adapter `@agentclientprotocol/codex-acp`, downloaded with npx when picked | read-only mode, with an instruction not to use tools | Codex keeps one; rebase-verify removes it and never reads it | yes |
+| OpenCode, Gemini CLI, Cursor, Copilot CLI, Kimi, Qwen Code | their own ACP mode, offered when installed | not switched off; any tool use stops the run and its answer is thrown away | depends on the agent | no |
+| Anthropic API | your `ANTHROPIC_API_KEY` | none | none | no agent; the gate figures were measured with this prompt |
+
+The tools are switched off where the agent allows it (oh-my-pi, Claude Code). Codex runs read-only with an instruction not to use tools. Agents not tested rely on the stop-on-tool rule, which also backs up the others: any tool use stops the run and its answer is thrown away. The tool never reads its own agent runs: they live in temp folders named `rebase-verify-agent-run-*` and are skipped as a source.
+
+**Model.** The wizard offers the agent's current model by default and lets you pick another. For scripts: `npx rebase-verify generate --agent <id> --model <id> --yes`. `--model` needs `--agent`; `--yes` skips the wizard and every prompt.
+
+**Local log.** `out/agent-log.jsonl` holds every message exchanged with the agent except the agent's startup and sign-in answers: your messages and the agent's answers. It stays on your machine and is never sent. Delete `out/` to remove it.
+
+**What is recorded.** The profile records `generatedBy.narrative` and `practices.classifiedBy` as `{ agent, model }`, and the hub shows the latter next to «dal modello della persona, non ricontrollato». The gate figures in "Work practices" hold for claude-opus-4-7 only; any other model is recorded, not measured.
 
 ## Sources
 
@@ -83,7 +113,7 @@ Each code practice is counted against the sessions where it could have happened 
 - `design_documents`: A design document (an ADR, RFC, spec or design file, by path) was written or edited in the session. M is the sessions with an edit.
 - `security_checks`: A dependency audit or a security scanner ran in the session. M is the sessions with an edit.
 
-The four model practices are classified by the model you already use, not by rebase: the slash-command agent in Claude Code, or your own API key when you run `generate` with `ANTHROPIC_API_KEY` set. They read at most 60 sampled sessions (only sessions with at least two messages from you, spread across products and months) and at most 12 of your own messages in each, first and then evenly spaced, each cut to 600 characters and already redacted. The agent's replies and your files are never read, and neither are the texts an agent wrote: Claude Code sub-agent briefs, task notifications, compaction summaries, and opencode child sessions are skipped. The model answers one yes or no per practice per session, and nothing else. Tone, feelings, politeness and wording quality are never grounds for a yes. M is the number of sessions classified, at most 60:
+The four model practices are classified by the coding agent and model you chose (see "Which agent writes and classifies"), not by rebase: the agent picked in the wizard or with `--agent`, the slash-command agent in Claude Code, or your own API key when you run `generate` with `ANTHROPIC_API_KEY` set. They read at most 60 sampled sessions (only sessions with at least two messages from you, spread across products and months) and at most 12 of your own messages in each, first and then evenly spaced, each cut to 600 characters and already redacted. The agent's replies and your files are never read, and neither are the texts an agent wrote: Claude Code sub-agent briefs, task notifications, compaction summaries, and opencode child sessions are skipped. The model answers one yes or no per practice per session, and nothing else. Tone, feelings, politeness and wording quality are never grounds for a yes. M is the number of sessions classified, at most 60:
 
 - `asks_for_alternatives`: asks for options or trade-offs before choosing one.
 - `pushes_back_with_reason`: rejects or corrects what the agent proposed or did, and says why.
@@ -106,6 +136,8 @@ With the slash command, your messages go to whatever provider your agent already
 How to read the table. A classifier that always answered false would score 202 to 207 of 224 pooled, which is why the two own-session columns matter more than the pooled figure. Almost every miss is a false positive: the model errs towards counting a practice, so read each count as an upper bound. Stability rests on few true answers for some practices (3 to 10 per run), so it shows that the answers repeat, not that they are right. The reference sessions are written, not real: the blind second reader, a separate agent, labelled them, and the sessions where it disagreed with the writer were rewritten or dropped (6 rewritten, 16 dropped of 240), so the agreement figures are on cases two readers agree on. Some of the 40 stability sessions were dispatched by an agent rather than typed by a person. Neither number is accuracy on real sessions.
 
 `gives_context_and_constraints` (explains the goal, the constraints, or who the work is for, before asking for changes) and `raises_risks` (raises a risk: security, data loss, cost, performance, compatibility, rollout) did not reach the threshold, so they are not published and are not classified. To run the checks again: `node scripts/practices-gate.mjs agreement` and `node scripts/practices-gate.mjs stability` (see the header of the script for the options).
+
+The figures above hold for claude-opus-4-7 through the API prompt. With another agent or model the profile records which one answered and the hub shows it, but its accuracy was not measured.
 
 How it is read:
 
@@ -150,6 +182,8 @@ If you spot something we should change, [open an issue](https://github.com/letsr
 
 | | |
 |---|---|
+| `npx rebase-verify` | on a terminal, the wizard: finds your sources, lets you pick the agent and the model, writes and classifies the profile, shows a summary, then submits now or later |
+| `generate --agent <id> --model <id>` | the same without the wizard, for scripts; add `--yes` to skip every prompt |
 | `generate` *(default)* | full profile, locally; with `ANTHROPIC_API_KEY` set, the key sends the practices sample, and the narrative input unless `--narrative-file` is given, to Anthropic |
 | `prepare` | `out/narrative-input.json`, for writing the narrative manually, and `out/practices-input.json` with `out/practices-sample.json` for the model practices; `finalize` must get the same `--tz` |
 | `finalize --narrative-file out/narrative.json` | finalize after `prepare` |

@@ -225,3 +225,36 @@ test("the texts count four published model practices and none of them names the 
   assert.ok(/four classified by their own model/.test(command));
   assert.ok(!/- `raises_risks`:/.test(readme), "README lists raises_risks as classified");
 });
+
+// --- run from npx with the agent you choose (REB-1149) -----------------------
+test("README leads with npx and has the agent section, the flags and the local log", () => {
+  const youllNeed = readme.indexOf("## You'll need");
+  const how = readme.indexOf("## How it goes");
+  const which = readme.indexOf("## Which agent writes and classifies");
+  assert.ok(youllNeed > 0 && how > youllNeed && which > how);
+  assert.ok(readme.slice(how, which).indexOf("npx rebase-verify") < readme.slice(how, which).indexOf("git clone"), "npx must come before the clone");
+  assert.ok(readme.slice(how, which).includes("slash-command"));
+  const section = readme.slice(which, readme.indexOf("## Sources"));
+  for (const t of ["oh-my-pi", "Claude Code", "Codex", "--agent", "--model", "--yes", "agent-log.jsonl", "claude-agent-acp", "codex-acp", "generatedBy.narrative", "practices.classifiedBy"]) {
+    assert.ok(section.includes(t), `README agent section lacks ${t}`);
+  }
+  assert.ok(readme.includes("`npx rebase-verify` | on a terminal, the wizard"), "Commands table lacks the wizard row");
+  assert.ok(/claude-opus-4-7 through the API prompt/.test(readme), "gate section must say whose figures these are");
+});
+
+test("PRIVACY discloses the chosen agent's provider, the npm adapters, the local log and the recorded agent", () => {
+  const s = privacy.slice(privacy.indexOf("## 2b."), privacy.indexOf("## 3."));
+  assert.ok(s.length > 0, "PRIVACY lacks 2b");
+  for (const t of ["provider", "npm", "agent-log.jsonl", "{ agent, model }", "admins", "transcript"]) {
+    assert.ok(s.includes(t), `PRIVACY 2b lacks ${t}`);
+  }
+});
+
+test("the slash command says npx is the main way and records slash-command", () => {
+  assert.ok(command.includes("npx rebase-verify") && command.includes("`slash-command`"));
+});
+
+test("the omp registry label is oh-my-pi", async () => {
+  const { AGENTS } = await import("../src/agents/registry.mjs");
+  assert.equal(AGENTS.find((a) => a.id === "omp").label, "oh-my-pi");
+});

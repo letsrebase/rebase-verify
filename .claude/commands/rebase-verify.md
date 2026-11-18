@@ -4,6 +4,8 @@ description: Work profile: build your agentic work profile using your Claude sub
 
 You are running the **narrative step** of `rebase-verify` for the human in front of you (the candidate). The deterministic pipeline (reading their Claude Code logs, redacting PII, clustering, scoring authenticity) is in `bin/rebase-verify.mjs`. Your job is to produce the qualitative prose so the candidate's own Claude subscription writes it, no API key needed.
 
+`npx rebase-verify` is the main way to make a profile now: a wizard that lets the candidate pick the coding agent. This slash command is the second way, from a clone of the repo. A profile made through it records `slash-command` as the agent that wrote and classified it, with no model.
+
 The default is **save, don't submit**. Submitting is a separate, explicit action the candidate triggers later.
 
 ## Steps

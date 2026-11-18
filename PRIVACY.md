@@ -1,6 +1,6 @@
 # Privacy & policy: rebase-verify
 
-Last updated: 2026-11-18
+Last updated: 2026-11-19
 
 rebase-verify is a tool that turns your Claude Code logs into an anonymised work profile that you send to rebase, the freelance community at letsrebase.com. It is a report (a photograph of how you work with AI), not a score and not an automated decision about you: a person at rebase reads it and decides whether to approve it, and approval gives you «Verificato da rebase». It is a fork of [apply-new](https://github.com/Play-New/apply-new) by Play New; the privacy terms here are rebase's, not Play New's.
 
@@ -36,6 +36,17 @@ The short prose in your profile is generated in one of three ways, and they diff
 - **API path:** if `ANTHROPIC_API_KEY` is set and no narrative file is given, the narrative input is sent to **api.anthropic.com** under *your own* key: the real labels of your selected projects, a README/CLAUDE.md excerpt (up to 1,200 characters), up to 60 dependency names, 20 commit subjects, and sampled prompts (PII-redacted, but not name-stripped). With `generate`, the model-practices sample goes too, even when a narrative file is given: up to 60 sessions, 12 of your own messages each, 600 characters each, redacted. rebase never sees this exchange; it is between you and Anthropic, governed by Anthropic's API terms. But it does leave your machine before submit, so the tool prints a warning when this path engages. If you work under NDA or prefer everything local, use the subscription or manual path.
 
 The name-stripping described in section 2 (no repository names, no client names in what *we* receive) applies to what is transmitted to rebase at submit; it cannot retroactively apply to what you choose to send to Anthropic via your own key.
+
+## 2b. The coding agent you choose
+
+`npx rebase-verify` (and `generate --agent <id>`) lets a coding agent you pick write the narrative and classify the model practices. You choose the agent and the model; rebase does not.
+
+- **What the agent's model provider receives.** The narrative input (see 2a) and the practices sample (up to 60 sessions, 12 of your own messages each, 600 characters each, redacted), under that provider's own terms. rebase never receives it. It leaves your machine before submit.
+- **Downloads.** The adapters for Claude Code (`@agentclientprotocol/claude-agent-acp`) and Codex (`@agentclientprotocol/codex-acp`) are downloaded from npm with npx when you pick them.
+- **Tools.** Each turn runs in its own agent session with a minimal environment. Tools are switched off where the agent allows it (oh-my-pi, Claude Code); Codex runs read-only with an instruction not to use tools; for agents not tested, and as a backstop for all, any tool use stops the run and its answer is thrown away.
+- **Transcripts.** oh-my-pi and Codex keep a transcript of the run, which rebase-verify removes and never reads. Claude Code keeps none but leaves an empty folder, which rebase-verify removes.
+- **Local log.** `out/agent-log.jsonl` holds every message exchanged with the agent except the agent's startup and sign-in answers (your messages and the agent's answers). It stays on your machine, is never sent, and goes when you delete `out/`.
+- **What rebase sees.** The profile records the agent and the model that wrote the narrative and classified the practices as `{ agent, model }`. rebase's admins see them next to the practices. The accuracy figures in the README were measured for claude-opus-4-7 through the API prompt; any other agent or model is recorded, not measured.
 
 ## 3. Why we collect it (purpose)
 

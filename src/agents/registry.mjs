@@ -230,7 +230,7 @@ function acpEntry({ id, label, bins, homeDirs, command, args, source = null, log
 export const AGENTS = [
   {
     id: "omp",
-    label: "omp",
+    label: "oh-my-pi",
     kind: "acp",
     tested: true,
     source: "omp",
