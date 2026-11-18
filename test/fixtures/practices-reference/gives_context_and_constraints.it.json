@@ -1,0 +1,334 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "gives_context_and_constraints",
+  "lang": "it",
+  "sessions": [
+    {
+      "id": "gives_context_and_constraints.it.p01",
+      "kind": "positive",
+      "messages": [
+        "Premessa: è un gestionale per piccoli studi di fisioterapia, le segretarie non sono tecniche e usano tablet vecchi.",
+        "Fai in modo che il calendario mostri una settimana per volta con aree di tocco grandi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p02",
+      "kind": "positive",
+      "messages": [
+        "Dobbiamo consegnare il modulo fatture entro venerdì per un cliente pilota e non possiamo toccare la libreria auth condivisa perché è di un altro team.",
+        "Aggiungi il download PDF alla pagina fattura."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p03",
+      "kind": "positive",
+      "messages": [
+        "L'obiettivo è rendere molto più veloce l'ETL notturno, così gli analisti hanno i dati prima delle 8. Il runner ha 2GB di memoria al massimo.",
+        "Parti dal profiling dello step di trasformazione."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p04",
+      "kind": "positive",
+      "messages": [
+        "Questa app è per tecnici sul campo che spesso non hanno segnale, quindi deve funzionare offline. Puntiamo ad Android 8 e superiori.",
+        "Ora aggiungi la schermata note."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p05",
+      "kind": "positive",
+      "messages": [
+        "Contesto: la libreria è open source, usata da chi ha Node 14 o più, quindi niente sintassi recente.",
+        "Aggiungi un'opzione di timeout al client."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p06",
+      "kind": "positive",
+      "messages": [
+        "Gestisco uno studio di due persone e questo è il portale per i nostri clienti. Sono quasi tutti piccoli ristoratori che lo aprono dal telefono tra un servizio e l'altro.",
+        "L'hosting lo paghiamo di tasca nostra, quindi restiamo sul piano più piccolo.",
+        "Aggiungi una pagina dove il cliente vede lo stato delle sue richieste aperte."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p07",
+      "kind": "positive",
+      "messages": [
+        "Ho appena ereditato questo servizio da un collega passato a un altro team. Genera il report settimanale di magazzino che i responsabili leggono ogni lunedì mattina.",
+        "Python lo conosco bene ma non ho mai usato Celery, tienine conto quando mi spieghi le cose.",
+        "Fammi una panoramica di come viene costruito il report, partendo dallo scheduler."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p08",
+      "kind": "positive",
+      "messages": [
+        "Per una demo a degli investitori la settimana prossima il cruscotto deve sembrare popolato. I dati sono finti e verranno tolti dopo.",
+        "Genera 200 ordini realistici."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi uno spinner di caricamento alla dashboard.",
+        "Ah, è per gli schermi kiosk nella hall, comunque."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Rinomina userId in accountId ovunque.",
+        "Questo è il piano."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Scrivi una funzione che interpreta le date.",
+        "Usa il formato che vuoi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Per favore aggiungi la modalità scura.",
+        "Grazie, ti ringrazio, sarà bellissima per i nostri utenti."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Correggi il refuso nel README.",
+        "Anche quello nel footer."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Fai la solita cosa per il livello di cache.",
+        "Sai come facciamo noi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiorna le dipendenze.",
+        "Poi dimmi cosa è cambiato nel lockfile."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n08",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi un endpoint per gli ordini.",
+        "È per l'app mobile.",
+        "Ritorna JSON."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p09",
+      "kind": "positive",
+      "messages": [
+        "Aspetta prima di continuare con la tabella.",
+        "Voglio che sia ordinabile perché il supporto scorre centinaia di ticket alla volta su schermi 1366 e guarda solo i più vecchi.",
+        "Quindi l'ordinamento predefinito deve essere dal più vecchio, e tieni le colonne strette."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.p10",
+      "kind": "positive",
+      "messages": [
+        "Un po' di contesto su questo repo: è un plugin che i maestri installano sui portatili della scuola, e la policy dell'IT scolastico ammette solo estensioni dallo store ufficiale.",
+        "Gli utenti sono insegnanti della primaria, molti poco a loro agio con i termini tecnici.",
+        "Riscrivi i messaggi di errore del pannello impostazioni in un linguaggio semplice."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n09",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi un webhook per i nuovi ordini.",
+        "Comunque i negozianti sono per lo più su Shopify.",
+        "Come prima, POST con il JSON dell'ordine."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.it.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Rendi più semplice la schermata di onboarding.",
+        "Gli utenti sono confusi.",
+        "Riduci i passaggi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,334 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "gives_context_and_constraints",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "gives_context_and_constraints.en.p01",
+      "kind": "positive",
+      "messages": [
+        "Background: this is a booking tool for small physiotherapy clinics, the receptionists are not technical and use old tablets.",
+        "With that in mind, make the calendar view show a week at a time with large tap targets."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p02",
+      "kind": "positive",
+      "messages": [
+        "We have to ship the invoice module by Friday for a pilot customer, and we can't touch the shared auth library because another team owns it.",
+        "Add a PDF download to the invoice page."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p03",
+      "kind": "positive",
+      "messages": [
+        "The goal is to make our nightly ETL much faster so analysts get fresh numbers before 8am. Memory on the runner is capped at 2GB.",
+        "Start by profiling the transform step."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p04",
+      "kind": "positive",
+      "messages": [
+        "This app is for field engineers who often have no signal, so everything has to work offline. We target Android 8 and up.",
+        "Now add the notes screen."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p05",
+      "kind": "positive",
+      "messages": [
+        "Context: the library is open source, used by people on Node 14 and up, so we can't use newer syntax.",
+        "Please add a timeout option to the client."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p06",
+      "kind": "positive",
+      "messages": [
+        "I run a two-person studio and this is our client portal. Our clients are mostly small restaurant owners who check it from their phones between services.",
+        "We pay for the hosting out of our own pocket, so the plan stays at the smallest tier.",
+        "Add a page where a client can see the status of their open requests."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p07",
+      "kind": "positive",
+      "messages": [
+        "I just inherited this service from a colleague who moved to another team. It generates the weekly stock report that the warehouse managers read every Monday morning.",
+        "I know the Python side well but I've never used Celery, so keep that in mind when you explain things.",
+        "Give me a walkthrough of how the report gets built, starting from the scheduler."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p08",
+      "kind": "positive",
+      "messages": [
+        "For a demo to investors next week, I need the dashboard to look populated. The data is fake and will be removed after.",
+        "Seed 200 realistic orders."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Add a loading spinner to the dashboard.",
+        "Oh, it's for the kiosk screens in the lobby, by the way."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Rename userId to accountId everywhere.",
+        "That's the plan."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Write a function that parses dates.",
+        "Use any format you like."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Please add dark mode.",
+        "Thanks, appreciate it, this will be great for our users."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Fix the typo in the README.",
+        "Also the one in the footer."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Do the usual thing for the cache layer.",
+        "You know how we do it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Update the dependencies.",
+        "Then tell me what changed in the lockfile."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n08",
+      "kind": "near_miss",
+      "messages": [
+        "Add an endpoint for orders.",
+        "It's for the mobile app.",
+        "Return JSON."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p09",
+      "kind": "positive",
+      "messages": [
+        "Hold on before you continue with the table.",
+        "The reason I want it sortable is that the support team scans hundreds of tickets at a time on a 1366 screen, and they only care about oldest-first.",
+        "So the default sort should be oldest first, and keep the columns narrow."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.p10",
+      "kind": "positive",
+      "messages": [
+        "Some background on this repo: it's a plugin that teachers install on school laptops, and the school IT policy only allows extensions from the official store.",
+        "Our users are primary school teachers, many of them not comfortable with technical terms.",
+        "Rewrite the error messages in the settings panel in plain language."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": true,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n09",
+      "kind": "near_miss",
+      "messages": [
+        "Add a webhook for new orders.",
+        "By the way, the shop owners are mostly on Shopify.",
+        "Anyway, same as before, POST with the order JSON."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "gives_context_and_constraints.en.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Make the onboarding screen simpler.",
+        "Users are confused.",
+        "Cut the steps down."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,332 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "asks_for_alternatives",
+  "lang": "it",
+  "sessions": [
+    {
+      "id": "asks_for_alternatives.it.p01",
+      "kind": "positive",
+      "messages": [
+        "Il job di esportazione va in timeout sui clienti grandi.",
+        "Prima di toccare codice dimmi che strade abbiamo: batch, coda, streaming? Voglio i pro e contro di ognuna."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p02",
+      "kind": "positive",
+      "messages": [
+        "Dobbiamo salvare le preferenze utente.",
+        "Confrontami una colonna JSON e una tabella separata, e dimmi cosa costa ciascuna. Poi scelgo io."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p03",
+      "kind": "positive",
+      "messages": [
+        "Il retry deve stare nel client o nel gateway? Mostrami entrambe le opzioni e il costo di manutenzione.",
+        "Non scrivere ancora codice."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p04",
+      "kind": "positive",
+      "messages": [
+        "Il CSS è un caos, pensavo a Tailwind ma non sono convinto.",
+        "Che alternative ci sono? Due o tre percorsi realistici e cosa perdiamo con ciascuno."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p05",
+      "kind": "positive",
+      "messages": [
+        "Lo script di migrazione funziona in staging.",
+        "C'è un modo meno pesante che riscrivere tutta la tabella? Fammi vedere almeno un altro approccio prima di partire."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p06",
+      "kind": "positive",
+      "messages": [
+        "Serve l'autenticazione per la dashboard interna.",
+        "Abbozzami un paio di soluzioni, cookie di sessione, JWT o dietro proxy VPN, e dimmi quale preferiresti e perché."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p07",
+      "kind": "positive",
+      "messages": [
+        "Come potremmo evitare il polling qui?",
+        "E websocket rispetto a server-sent events, quanto ci costa di più?"
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p08",
+      "kind": "positive",
+      "messages": [
+        "Versioniamo l'API? Dammi le opzioni possibili e cosa comporta ciascuna.",
+        "Poi decido."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Perché questa funzione ritorna null?",
+        "E cosa fa il file di test?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi una cache Redis davanti alla query dei prodotti.",
+        "Quanto ci metti?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Migliora la validazione del form.",
+        "Non so cosa sia meglio, fai tu quello che ti pare funzioni."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Spiegami come funziona la coda adesso.",
+        "Raccontami cosa succede quando un job fallisce."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Passa la build a esbuild.",
+        "esbuild supporta la nostra config dei decorator?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Ho valutato Postgres e SQLite e ho scelto Postgres. Prepara lo schema.",
+        "Chiavi uuid."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Hai proposto l'opzione B. Vai con quella.",
+        "Implementala nel livello service."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n08",
+      "kind": "near_miss",
+      "messages": [
+        "Che differenza c'è tra map e flatMap qui?",
+        "ok, sistema la riga 40"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p09",
+      "kind": "positive",
+      "messages": [
+        "Vedo che hai scelto un cron per la sincronizzazione.",
+        "Mmh, è davvero l'unica strada? Vorrei vedere come sarebbe con una coda e quanto costa tenerla in piedi.",
+        "Non riscrivere ancora, confronta solo le due per il nostro volume."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.p10",
+      "kind": "positive",
+      "messages": [
+        "Il diff va bene ma non sono convinto di tenere le sessioni in memoria.",
+        "In quali altri posti potremmo metterle, e cosa si rompe in ciascun caso quando giriamo su due istanze?",
+        "Poi consigliamene una."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n09",
+      "kind": "near_miss",
+      "messages": [
+        "Hai scelto SQLite per la cache.",
+        "Perché SQLite?",
+        "Ok. Ed è quello che si usa di solito per questo?",
+        "Va bene, tienilo."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.it.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Nella tua lista di prima prendo il secondo approccio.",
+        "Serve una nuova variabile d'ambiente?",
+        "Ok. Implementalo."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

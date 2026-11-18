@@ -1,0 +1,300 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "pushes_back_with_reason",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "pushes_back_with_reason.en.p01",
+      "kind": "positive",
+      "messages": [
+        "No, don't mock the database in those tests.",
+        "Last quarter mocks passed while the real migration broke, so these need to hit a real test DB."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p02",
+      "kind": "positive",
+      "messages": [
+        "That fix hides the error instead of handling it. The caller needs to know the payment failed, so rethrow it.",
+        "Return the failure to the caller instead."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p04",
+      "kind": "positive",
+      "messages": [
+        "That's not what I asked. I wanted the loading state on the button, not a full-page spinner.",
+        "A full page spinner blocks the table users are reading while the save runs."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p05",
+      "kind": "positive",
+      "messages": [
+        "I disagree with adding a new dependency for this. It's four lines of code and our bundle is already over budget.",
+        "Write it by hand."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p06",
+      "kind": "positive",
+      "messages": [
+        "The test you wrote only checks the function was called, which proves nothing about the output. Rewrite it.",
+        "Start from the cases in the bug report."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p07",
+      "kind": "positive",
+      "messages": [
+        "Wrong place for that logic. Controllers here stay thin, everything goes through the service layer, that's the convention in the rest of the repo.",
+        "Move it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "No.",
+        "Do it differently."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "I don't like this naming.",
+        "Try again."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "This is wrong.",
+        "Fix it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Hmm, not what I had in mind.",
+        "Redo the header."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Good catch on the off-by-one, you're right, I'd missed that.",
+        "Apply it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Why did you use a for loop here?",
+        "Okay, makes sense, keep it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Revert that commit.",
+        "Then add the logging we discussed."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n08",
+      "kind": "near_miss",
+      "messages": [
+        "Use tabs, not spaces.",
+        "Everything in this file."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p09",
+      "kind": "positive",
+      "messages": [
+        "You've split the form into five files.",
+        "I'd rather keep it in one. It's only 80 lines and jumping between files makes the review harder for the team.",
+        "Merge them back."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.p10",
+      "kind": "positive",
+      "messages": [
+        "Ok the retry works, but you also changed the timeout from 30s to 5s.",
+        "That wasn't part of the ask, and 5s is too short for the report endpoint, it takes 20s on a normal day.",
+        "Put it back."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n09",
+      "kind": "near_miss",
+      "messages": [
+        "You renamed the variable to `tmp`.",
+        "I don't like that name.",
+        "Something better.",
+        "Still no, try again."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "pushes_back_with_reason.en.n10",
+      "kind": "near_miss",
+      "messages": [
+        "You used a regex for this?",
+        "Hmm, ok, I guess regex is fine here since the format is simple.",
+        "Keep it, but add the case with no area code."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}
