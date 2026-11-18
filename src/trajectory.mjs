@@ -116,10 +116,6 @@ function splitHalves(parsed) {
   };
 }
 
-// Exclude system-injected user messages from the median: compaction summary
-// requests are 1000+ words and dwarf the candidate's own input, and task
-// notifications are XML noise.
-
 function metricsFor(sessions) {
   let userMsgs = 0;
   let delegations = 0;
@@ -131,6 +127,9 @@ function metricsFor(sessions) {
   for (const s of sessions) {
     let hasCheck = false;
     for (const m of s.messages) {
+      // Exclude system-injected user messages from the median: compaction summary
+      // requests are 1000+ words and dwarf the candidate's own input, and task
+      // notifications are XML noise.
       if (m.role === "user" && m.textRedacted.trim() && !SYSTEM_PROMPT_RE.test(m.textRedacted.trim())) {
         userMsgs++;
         const w = m.textRedacted.trim().split(/\s+/).length;

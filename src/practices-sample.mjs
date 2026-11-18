@@ -47,6 +47,7 @@ export function sampleSessions(parsed, { tz = DEFAULT_TZ } = {}) {
   const dayKey = dayKeyFor(tz);
   const products = new Map(); // product -> Map(month -> entries[])
   for (const { session, meta } of eachSession(parsed, tz)) {
+    if (session?.parentId) continue; // an opencode child session: an agent's brief and work, not the person's
     if (!meta.month || ownTexts(session).length < 2) continue; // no time: cannot be placed in a month
     let ts = null;
     for (const m of session.messages) {

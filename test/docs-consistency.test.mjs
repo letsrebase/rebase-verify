@@ -215,3 +215,13 @@ test("texts say sub-agent briefs, task notifications and compaction summaries ar
     assert.ok(/sub-agent briefs, task notifications/.test(text), `${name} does not say what is skipped`);
   }
 });
+
+test("the texts count four published model practices and none of them names the unpublished ones as classified", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(!/\bfive (model|classified)\b|\bFive are classified\b|\btwelve\b/.test(text), `${name} still says five or twelve`);
+  }
+  assert.ok(/eleven work practices: seven counted by code and four classified/.test(readme));
+  assert.ok(/eleven practices/.test(privacy) && /Four are classified/.test(privacy));
+  assert.ok(/four classified by their own model/.test(command));
+  assert.ok(!/- `raises_risks`:/.test(readme), "README lists raises_risks as classified");
+});

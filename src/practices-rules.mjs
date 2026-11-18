@@ -219,9 +219,10 @@ export const NOTES = [
 // One sentence for the artifact and the prompt: the same words in both.
 export const TONE_RULE = "Tone, feelings, politeness and wording quality are never grounds for a yes.";
 
-// The five that passed the gate (REB-1146); gives_context_and_constraints
-// reached 87.5% agreement against the 90% threshold and is not published.
-export const PUBLISHED_MODEL_IDS = ["asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "raises_risks", "limits_scope"];
+// The four that passed the gate (REB-1146) on the shipped prompt and sampler.
+// gives_context_and_constraints (agreement and stability) and raises_risks
+// (stability) stayed under the 90% threshold and are not published.
+export const PUBLISHED_MODEL_IDS = ["asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "limits_scope"];
 
 // The six candidates for the model practices; only the published ones leave
 // the machine (PUBLISHED_MODEL_IDS), the gate checks the rest.

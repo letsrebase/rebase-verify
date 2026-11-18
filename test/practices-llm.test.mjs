@@ -14,11 +14,11 @@ const mkInput = (n) => ({
 });
 const yes = ({ user }) => Promise.resolve(JSON.stringify(Object.fromEntries(JSON.parse(user).sessions.map((s) => [s.id, Object.fromEntries(ids.map((i) => [i, true]))]))));
 
-test("candidates are the six, five published", () => {
+test("candidates are the six, four published", () => {
   assert.equal(PRACTICES_BATCH, 10);
   assert.deepEqual(ids, ["asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "gives_context_and_constraints", "raises_risks", "limits_scope"]);
   for (const p of MODEL_PRACTICE_CANDIDATES) assert.equal(p.positive.length + p.negative.length, 4);
-  assert.deepEqual(PUBLISHED_MODEL_IDS, ids.filter((i) => i !== "gives_context_and_constraints"));
+  assert.deepEqual(PUBLISHED_MODEL_IDS, ids.filter((i) => !["gives_context_and_constraints", "raises_risks"].includes(i)));
 });
 
 test("25 sessions give 3 calls and a merged answer", async () => {

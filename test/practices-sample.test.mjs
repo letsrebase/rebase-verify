@@ -173,3 +173,12 @@ test("through the Claude Code adapter: the sub-agent brief never reaches the sam
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("an opencode child session (parentId) is never sampled, whatever its messages", () => {
+  const parsed = { sessions: [
+    sess("parent", "a", "2026-05", 2),
+    sess("child", "a", "2026-05", 5, { parentId: "parent" }),
+  ] };
+  const out = sampleSessions(parsed, { tz: "UTC" });
+  assert.deepEqual(out.map((s) => s.session), ["parent"]);
+});

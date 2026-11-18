@@ -62,7 +62,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
 5. **Classify the model practices, only when `out/practices-input.json` exists.** If the file is not there, skip this step. Before you read anything, tell the candidate in plain words:
    - which practices are classified: the ids listed under `practices` in `out/practices-input.json`, each with its definition and examples (what counts and what does not);
-   - that only their own messages are read, from the sampled sessions (at most 60 sessions, 12 messages each, already redacted), never the agent's answers, sub-agent briefs, task notifications, compaction summaries or any file;
+   - that only their own messages are read, from the sampled sessions (at most 60 sessions, 12 messages each, already redacted), never the agent's answers, sub-agent briefs, task notifications, compaction summaries, opencode child sessions or any file;
    - that the model they are already using here answers, and rebase never receives the messages, only the counts;
    - that only the counts leave their machine ("seen in N of M sessions"), while the per-session answers stay in `out/practices-detail.json`, which is never sent.
 
@@ -78,7 +78,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
      --narrative-file out/narrative.json
    ```
    This writes `out/candidate.json` (for agents) and `out/profile.md` (for humans).
-   The profile now also carries counts of work practices (seen in N of M sessions, seven counted by code from tool calls and file paths, five classified by their own model in step 5, all visible in this profile; only the counts are carried, never the commands, paths or file names). Tell the candidate they can read them under "How the work is done" in `out/profile.md` (that section only appears when at least one practice could be counted), and that the README section "Work practices" defines each one.
+   The profile now also carries counts of work practices (seen in N of M sessions, seven counted by code from tool calls and file paths, four classified by their own model in step 5, all visible in this profile; only the counts are carried, never the commands, paths or file names). Tell the candidate they can read them under "How the work is done" in `out/profile.md` (that section only appears when at least one practice could be counted), and that the README section "Work practices" defines each one.
 
 7. **Show `out/profile.md`** to the candidate, then ask the four review questions below **ONE AT A TIME, in order**. Wait for an answer before moving to the next. **Do NOT enumerate them in a single block**: the goal is a conversation, not a survey.
 

@@ -13,13 +13,15 @@ const artifact = JSON.parse(readFileSync(new URL("../share/practices.json", impo
 test("share/practices.json matches practicesArtifact() (run `npm run practices`)", () => {
   assert.deepEqual(artifact, practicesArtifact(), "run `npm run practices`");
 });
-test("lists the seven code practices, then exactly the five that passed the gate, in order", () => {
+test("lists the seven code practices, then exactly the four that passed the gate, in order", () => {
   assert.deepEqual(artifact.practices.map((p) => p.id), [
     "checks_before_commit", "tests_with_changes", "failure_reproduced_before_fix",
     "plan_before_edit", "reviews_changes", "design_documents", "security_checks",
-    "asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "raises_risks", "limits_scope",
+    "asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "limits_scope",
   ]);
-  assert.ok(!artifact.practices.some((p) => p.id === "gives_context_and_constraints"), "failed the gate");
+  for (const id of ["gives_context_and_constraints", "raises_risks"]) {
+    assert.ok(!artifact.practices.some((p) => p.id === id), `${id} failed the gate`);
+  }
   for (const p of artifact.practices.slice(0, 7)) {
     assert.equal(p.method, "code");
     assert.ok(p.definition.trim().length > 0, p.id);
