@@ -79,7 +79,7 @@ function hasToken(text, name) {
 function removeOmp(runDir, ctx) {
   const name = runName(runDir);
   if (!name) return [];
-  const root = join(homeOf(ctx), ".omp", "agent", "sessions");
+  const root = join(envGet(envOf(ctx), "PI_CODING_AGENT_DIR") ?? join(homeOf(ctx), ".omp", "agent"), "sessions");
   let entries;
   try {
     entries = readdirSync(root, { withFileTypes: true });
@@ -212,6 +212,10 @@ function removeClaude(runDir, ctx) {
 
 const nothing = () => [];
 
+// The npm packages npx downloads for an agent: one source for the spec and for what the person is told.
+const CLAUDE_ADAPTER = "@agentclientprotocol/claude-agent-acp@0.108.1";
+const CODEX_ADAPTER = "@agentclientprotocol/codex-acp@2.7.0";
+
 function acpEntry({ id, label, bins, homeDirs, command, args, source = null, loginHint, installHint }) {
   return {
     id,
@@ -251,11 +255,12 @@ export const AGENTS = [
     label: "Claude Code",
     kind: "acp",
     tested: true,
+    download: CLAUDE_ADAPTER,
     source: "claude-code",
     detect: detector({ bins: ["claude"], homeDirs: [".claude"], envDirs: ["CLAUDE_CONFIG_DIR"] }),
     spec: ({ system } = {}) => ({
       command: "npx",
-      args: ["-y", "@agentclientprotocol/claude-agent-acp@0.108.1"],
+      args: ["-y", CLAUDE_ADAPTER],
       env: ["CLAUDE_CONFIG_DIR", "CLAUDE_CODE_EXECUTABLE"],
       sessionMeta: { claudeCode: { options: { tools: [], settingSources: [], persistSession: false } } },
       systemPromptVia: "meta",
@@ -270,11 +275,12 @@ export const AGENTS = [
     label: "Codex",
     kind: "acp",
     tested: true,
+    download: CODEX_ADAPTER,
     source: "codex",
     detect: detector({ bins: ["codex"], homeFiles: [".codex/auth.json"], envFiles: [["CODEX_HOME", "auth.json"]] }),
     spec: ({ system } = {}) => ({
       command: "npx",
-      args: ["-y", "@agentclientprotocol/codex-acp@2.7.0"],
+      args: ["-y", CODEX_ADAPTER],
       env: ["CODEX_HOME", "CODEX_PATH"],
       mode: "read-only",
       systemPromptVia: "param",
@@ -286,7 +292,7 @@ export const AGENTS = [
   },
   acpEntry({ id: "opencode", label: "opencode", bins: ["opencode"], command: "opencode", args: ["acp"], source: "opencode", loginHint: "opencode auth login", installHint: "install opencode from https://opencode.ai" }),
   acpEntry({ id: "gemini", label: "Gemini CLI", bins: ["gemini"], command: "gemini", args: ["--acp"], loginHint: "run `gemini` to sign in", installHint: "install the Gemini CLI from https://github.com/google-gemini/gemini-cli" }),
-  acpEntry({ id: "cursor", label: "Cursor", bins: ["cursor-agent"], command: "agent", args: ["acp"], source: "cursor", loginHint: "agent login", installHint: "install the Cursor CLI from https://cursor.com/cli" }),
+  acpEntry({ id: "cursor", label: "Cursor", bins: ["cursor-agent"], command: "cursor-agent", args: ["acp"], source: "cursor", loginHint: "agent login", installHint: "install the Cursor CLI from https://cursor.com/cli" }),
   acpEntry({ id: "copilot", label: "GitHub Copilot", bins: ["copilot"], command: "copilot", args: ["--acp"], loginHint: "run `copilot`, then /login", installHint: "install the Copilot CLI from https://github.com/github/copilot-cli" }),
   acpEntry({ id: "kimi", label: "Kimi", bins: ["kimi"], command: "kimi", args: ["acp"], source: "kimi", loginHint: "kimi login", installHint: "install Kimi CLI from https://github.com/MoonshotAI/kimi-cli" }),
   acpEntry({ id: "qwen", label: "Qwen Code", bins: ["qwen"], command: "qwen", args: ["--acp"], loginHint: "run `qwen` to sign in", installHint: "install Qwen Code from https://github.com/QwenLM/qwen-code" }),
@@ -338,6 +344,13 @@ cursor.detect = (ctx = {}) => {
   if (existsSync(join(homeOf(ctx), ".cursor")) && onPath("agent", envOf(ctx))) return { installed: true, how: "agent on PATH and ~/.cursor exists" };
   return r;
 };
+// Started as `cursor-agent acp` when it was found as cursor-agent, `agent acp` when it was found as agent.
+cursor.spec = ({ system, ctx = {} } = {}) => ({
+  command: cursorBase(ctx).installed ? "cursor-agent" : "agent",
+  args: ["acp"],
+  systemPromptVia: "inline",
+  system,
+});
 
 /** Installed entries with their session counts, in the order the wizard shows them. */
 export function availableAgents({ sessionsBySource = {}, env = process.env, home } = {}) {

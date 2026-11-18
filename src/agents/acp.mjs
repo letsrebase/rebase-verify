@@ -3,10 +3,10 @@
 // environment, no client capabilities (no fs, no terminal), and a tripwire:
 // any tool call cancels the turn and fails it.
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import * as acp from "@agentclientprotocol/sdk";
 import { AGENT_RUN_MARKER } from "../agent-run.mjs";
@@ -63,6 +63,17 @@ export function childEnv(extraNames = [], source = process.env) {
 export function windowsCommandLine(command, args = []) {
   const q = (a) => (/[\s"&|<>^()%]/.test(a) || a === "" ? `"${a.replace(/"/g, '""')}"` : a);
   return [command, ...args].map(q).join(" ");
+}
+
+// Windows: a command without an extension that resolves to a .cmd (an npm shim: npx, omp,
+// opencode, ...) can only be started through the shell.
+export function needsShell(command, { platform = process.platform, env = process.env, exists = existsSync } = {}) {
+  if (platform !== "win32" || extname(command)) return false;
+  if (command === "npx") return true;
+  const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH");
+  const dirs = String(pathKey ? env[pathKey] : "").split(";").map((d) => d.replace(/^"(.*)"$/, "$1")).filter(Boolean);
+  const hasExe = dirs.some((d) => exists(join(d, `${command}.exe`)) || exists(join(d, `${command}.com`)));
+  return !hasExe && dirs.some((d) => exists(join(d, `${command}.cmd`)));
 }
 
 const abortError = () => Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -148,10 +159,11 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
   try {
     cwd = mkdtempSync(join(tmpdir(), AGENT_RUN_MARKER));
     if (logFile) mkdirSync(dirname(logFile), { recursive: true });
-    const viaShell = process.platform === "win32" && spec.command === "npx";
+    const env = childEnv(spec.env);
+    const viaShell = needsShell(spec.command, { env });
     const spawnOpts = {
       cwd,
-      env: childEnv(spec.env),
+      env,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
       detached: process.platform !== "win32",

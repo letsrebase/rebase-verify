@@ -218,3 +218,38 @@ test("claude cleanup removes the empty project dir of the run, never one with a 
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("omp cleanup honours PI_CODING_AGENT_DIR", () => {
+  const home = tmp();
+  const dir = tmp();
+  const mine = join(dir, "sessions", "--tmp-rebase-verify-agent-run-abc123--");
+  const decoy = join(home, ".omp", "agent", "sessions", "--tmp-rebase-verify-agent-run-abc123--");
+  mkdirSync(mine, { recursive: true });
+  mkdirSync(decoy, { recursive: true });
+  const removed = get("omp").cleanup("/tmp/rebase-verify-agent-run-abc123", { home, env: { PI_CODING_AGENT_DIR: dir } });
+  assert.deepEqual(removed, [mine]);
+  assert.ok(existsSync(decoy));
+});
+
+test("the download of the npx agents has one source: the spec's package", () => {
+  for (const id of ["claude-code", "codex"]) {
+    const a = get(id);
+    assert.match(a.download, /^@agentclientprotocol\/[a-z-]+@\d+\.\d+\.\d+$/);
+    assert.ok(a.spec().args.includes(a.download));
+  }
+  assert.equal(get("omp").download, undefined);
+});
+
+test("cursor starts as cursor-agent when found as cursor-agent, as agent when found as agent", () => {
+  const withCursorAgent = process.env.PATH;
+  const dir = binDir("cursor-agent");
+  const save = process.env.PATH;
+  try {
+    process.env.PATH = dir;
+    assert.equal(get("cursor").spec().command, "cursor-agent");
+    process.env.PATH = binDir("agent");
+    assert.equal(get("cursor").spec().command, "agent");
+  } finally {
+    process.env.PATH = save ?? withCursorAgent;
+  }
+});

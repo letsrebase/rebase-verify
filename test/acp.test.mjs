@@ -397,3 +397,14 @@ test("renew closes the previous session first when the agent advertises it, and 
 
 test("windowsCommandLine quotes args as one string", () =>
   assert.equal(windowsCommandLine("npx", ["-y", "pkg@1", "a b", 'q"x']), 'npx -y pkg@1 "a b" "q""x"'));
+
+test("Windows: npm shims (a bare command that resolves to a .cmd) start through the shell", async () => {
+  const { needsShell } = await import("../src/agents/acp.mjs");
+  const have = (...files) => (p) => files.includes(p.replace(/\\/g, "/"));
+  const env = { Path: "C:\\bin;C:\\npm" };
+  assert.equal(needsShell("npx", { platform: "win32", env, exists: have() }), true);
+  assert.equal(needsShell("omp", { platform: "win32", env, exists: have("C:/npm/omp.cmd") }), true);
+  assert.equal(needsShell("claude", { platform: "win32", env, exists: have("C:/bin/claude.exe", "C:/bin/claude.cmd") }), false);
+  assert.equal(needsShell("omp.exe", { platform: "win32", env, exists: have("C:/npm/omp.cmd") }), false);
+  assert.equal(needsShell("omp", { platform: "linux", env, exists: have("C:/npm/omp.cmd") }), false);
+});

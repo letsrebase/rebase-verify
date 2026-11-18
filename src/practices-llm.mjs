@@ -79,7 +79,7 @@ export async function runPracticesStep(out, { key, call, warn, log = console.log
   if (!existsSync(inputFile)) return "none";
   if (!key) {
     log("      model practices not classified yet (no API key).");
-    log("      Inside Claude Code:  /rebase-verify   (your own model classifies them and finalizes)");
+    log("      From a clone, inside Claude Code:  /rebase-verify   (your own model classifies them and finalizes)");
     return "hint";
   }
   warn?.();

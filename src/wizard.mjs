@@ -4,7 +4,7 @@
 // the disk is injected, and the bin passes the same functions the sub-commands
 // use. `ui` is the @clack/prompts surface.
 import { rmSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import { AGENT_RUN_MARKER } from "./agent-run.mjs";
 import { spawnSync } from "node:child_process";
 import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } from "./agents/acp.mjs";
@@ -32,6 +32,8 @@ export function statusLine(status, { chars = 0, tokens = null, cost = null } = {
   return parts.join(" · ");
 }
 
+const downloadNote = (agent) => `Downloads ${agent.download} from npm with npx.`;
+
 /** What the person agrees to, in the words of the agent that will run. */
 export function consentText(agent) {
   const lines = [];
@@ -41,11 +43,12 @@ export function consentText(agent) {
     lines.push(`These go to ${agent.label} and to its model provider:`);
   }
   lines.push(
-    `- the narrative input: project labels, README and CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts and up to six compaction summaries;`,
+    `- the narrative input: project labels, README and CLAUDE.md excerpts, lines you added to CLAUDE.md or README over time, dependency names, commit subjects, sampled prompts, topics you researched and up to six compaction summaries;`,
     `- up to 60 sessions × 12 of your own messages, redacted, so the practices can be classified.`,
     ``,
     `rebase receives nothing until you choose to submit.`,
   );
+  if (agent.download) lines.push(downloadNote(agent));
   if (agent.kind !== "api") lines.push(`A local log of the exchange is written to out/agent-log.jsonl.`);
   if (agent.kind === "api") {
     lines.push(
@@ -141,6 +144,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
   // The process is exiting while an agent may be alive (a signal the wizard did not see,
   // an uncaught error): kill its group, remove the run dir and its transcript, synchronously.
   const onExit = () => {
+    proc.stdout?.write?.("\x1b[?25h");
     kill(pid);
     if (runDir) {
       try {
@@ -224,7 +228,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
       options: agents.map((a) => ({
         value: a.id,
         label: a.label,
-        hint: `${plural(a.sessions, "session")} in your logs · ${a.tested ? "tested" : "not tested"}`,
+        hint: `${plural(a.sessions, "session")} in your logs · ${a.tested ? "tested" : "not tested"}${a.download ? ` · ${downloadNote(a).replace(/\.$/, "")}` : ""}`,
       })),
       initialValue: first.id,
     });
@@ -266,6 +270,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
 
   proc.on("SIGINT", stop);
   proc.on("SIGTERM", stop);
+  proc.on("SIGHUP", stop);
   try {
     let model;
     if (agent.kind === "api") {
@@ -350,6 +355,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
       // from here on Ctrl-C belongs to whatever comes next (the sign-in wait of submit)
       proc.off("SIGINT", stop);
       proc.off("SIGTERM", stop);
+      proc.off("SIGHUP", stop);
     }
     spin.stop("The narrative and the practices are ready");
     session = null;
@@ -360,21 +366,29 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     ui.note(
       [
         `${plural(done.sessions, "session")} read, ${plural(done.products, "product")}.`,
+        ...(done.summary ? [``, done.summary] : []),
         ...(rows.length ? [``, `How the work is done (sessions where it was seen):`, ...rows] : []),
         ``,
-        `Read the full profile: ${done.file}`,
+        `Read the full profile: ${join(out, "profile.md")}`,
       ].join("\n"),
       "Your profile",
     );
-    const next = await ui.select({
-      message: "What next?",
-      options: [
-        { value: "submit", label: "Send it to rebase now" },
-        { value: "exit", label: "Exit", hint: "send later with: npx rebase-verify submit --yes" },
-      ],
-      initialValue: "exit",
-    });
-    if (await cancelled(next)) return 130;
+    let next;
+    for (;;) {
+      next = await ui.select({
+        message: "What next?",
+        options: [
+          { value: "submit", label: "Send it to rebase now" },
+          { value: "exit", label: "Exit", hint: "send later with: npx rebase-verify submit --yes" },
+        ],
+        initialValue: "exit",
+      });
+      if (await cancelled(next)) return 130;
+      if (next !== "submit") break;
+      const read = await ui.confirm({ message: "Have you read out/profile.md? It is what rebase will see.", initialValue: false });
+      if (await cancelled(read)) return 130;
+      if (read) break;
+    }
     if (next === "submit") {
       await deps.submit();
       ui.outro("Sent.");
@@ -386,6 +400,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     await closeSession();
     proc.off("SIGINT", stop);
     proc.off("SIGTERM", stop);
+    proc.off("SIGHUP", stop);
     proc.off("exit", onExit);
   }
 }

@@ -47,12 +47,6 @@ import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
 import { practicesFiles } from "../src/practices-sample.mjs";
 import { PRACTICES_WARN_WHAT, runPracticesStep } from "../src/practices-llm.mjs";
-import { AGENTS, availableAgents, defaultAgent } from "../src/agents/registry.mjs";
-import { runWithAgent } from "../src/agents/run.mjs";
-import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError, startAgent } from "../src/agents/acp.mjs";
-import * as clack from "@clack/prompts";
-import { runWizard, rejectedFlags } from "../src/wizard.mjs";
-import { liveStatus } from "../src/live-status.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { MODEL, anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
@@ -75,9 +69,9 @@ import { DEFAULT_TZ } from "../src/days.mjs";
 // Node-20-only syntax and builtins, true today: fetch / FormData /
 // structuredClone all live inside function bodies, and everything parses as
 // ES2022. Without this, old Node dies later with a bare ReferenceError.
-const nodeMajor = Number(process.versions.node.split(".")[0]);
-if (nodeMajor < 20) {
-  console.error(`rebase-verify needs Node 20 or newer; you're running ${process.version}.`);
+const [nodeMajor, nodeMinor] = process.versions.node.split(".").map(Number);
+if (nodeMajor < 20 || (nodeMajor === 20 && nodeMinor < 12)) {
+  console.error(`rebase-verify needs Node 20.12 or newer; you're running ${process.version}.`);
   console.error(`Install a current Node from https://nodejs.org (or: nvm install 20).`);
   process.exit(1);
 }
@@ -132,11 +126,34 @@ try {
 // practices-sample.json, practices.json, practices-detail.json, agent-log.jsonl,
 // candidate.json, profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
-const outDir = () => {
-  const out = join(process.cwd(), OUT_DIR);
+const outPath = () => join(process.cwd(), OUT_DIR);
+// Created only once logs were found. A `*` .gitignore inside keeps every file in it out of a commit.
+const ensureOut = () => {
+  const out = outPath();
   mkdirSync(out, { recursive: true });
+  const ignore = join(out, ".gitignore");
+  if (!existsSync(ignore)) writeFileSync(ignore, "*\n");
   return out;
 };
+
+// The wizard, the agent runner and their dependencies load only where they are used, so the
+// sub-commands work in a clone that never ran npm ci.
+async function loadOptional(load) {
+  try {
+    return await load();
+  } catch (e) {
+    if (e?.code === "ERR_MODULE_NOT_FOUND" && /@clack\/prompts|@agentclientprotocol/.test(e.message)) {
+      die("Run it with npx rebase-verify, or run npm ci in this folder first.");
+    }
+    throw e;
+  }
+}
+const loadAgents = () =>
+  loadOptional(async () => ({
+    registry: await import("../src/agents/registry.mjs"),
+    acp: await import("../src/agents/acp.mjs"),
+    run: await import("../src/agents/run.mjs"),
+  }));
 
 // Who wrote what, as the profile records it. The slash command (and a hand-written
 // narrative) reaches `finalize` through files, so its model is not known.
@@ -154,11 +171,12 @@ const say = (...a) => { if (!QUIET) console.log(...a); };
 const warn = (...a) => { if (!QUIET) console.error(...a); };
 
 // The agent behind `generate --agent <id>`, checked before any log is read.
-function resolveAgent() {
+async function resolveAgent() {
   if (!has("agent")) {
     if (has("model")) die("--model needs --agent <id>.");
     return null;
   }
+  const { AGENTS } = (await loadAgents()).registry;
   const ids = AGENTS.map((a) => a.id).join(", ");
   const id = flag("agent");
   if (!id) die(`--agent needs an id. Agents: ${ids}`);
@@ -176,6 +194,9 @@ function resolveAgent() {
 // its own process group, so the terminal's signal does not reach it); the run
 // removes its temp dir and transcript before the abort comes back.
 async function runAgentStep(entry, { out, narrativeInput }) {
+  const { acp, run } = await loadAgents();
+  const { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } = acp;
+  const { runWithAgent } = run;
   const inputFile = join(out, "practices-input.json");
   const practicesInput = existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, "utf8")) : null;
   const model = flag("model");
@@ -184,6 +205,7 @@ async function runAgentStep(entry, { out, narrativeInput }) {
   const stop = () => ctl.abort();
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
+  process.once("SIGHUP", stop);
   try {
     return await runWithAgent({
       agent: entry,
@@ -205,6 +227,7 @@ async function runAgentStep(entry, { out, narrativeInput }) {
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
+    process.off("SIGHUP", stop);
   }
 }
 
@@ -214,7 +237,7 @@ function logsRoot() {
   return root;
 }
 
-async function loadProfileInputs(out) {
+async function loadProfileInputs() {
   const root = logsRoot();
   if (!existsSync(root)) { console.error(`No logs at ${root}.`); process.exit(1); }
 
@@ -242,7 +265,7 @@ async function loadProfileInputs(out) {
   if (cu.length) say(`      cursor:      ${cu.length} sessions`);
   const ki = parsed.sessions.filter(s => s.source === "kimi");
   if (ki.length) say(`      kimi:        ${ki.length} sessions`);
-  return deriveInputs(parsed, out);
+  return deriveInputs(parsed, ensureOut());
 }
 
 // Everything computed from the parsed logs; the wizard passes the sources the person chose.
@@ -322,11 +345,10 @@ function writePracticesInput(out, parsed, tz) {
 }
 
 async function cmdGenerate() {
-  const entry = resolveAgent();
-  const out = outDir();
-  if (entry) rmSync(join(out, "agent-log.jsonl"), { force: true });
+  const entry = await resolveAgent();
   console.log(`\nrebase-verify generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: codePractices, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: codePractices, sources, out } = await loadProfileInputs();
+  if (entry) rmSync(join(out, "agent-log.jsonl"), { force: true });
   writePracticesInput(out, parsed, tzFlag);
   const narrativeOptions = {
     trajectory,
@@ -359,7 +381,7 @@ async function cmdGenerate() {
     if (!narrative) {
       writeFileSync(join(out, "narrative-input.json"), JSON.stringify(generated.input, null, 2));
       console.log(`      no narrative yet (no API key, no --narrative-file).`);
-      console.log(`      Inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
+      console.log(`      From a clone, inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
       console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  rebase-verify finalize`);
       return;
     }
@@ -388,9 +410,8 @@ function assembleWithGroundedness(args) {
 }
 
 async function cmdPrepare() {
-  const out = outDir();
   console.log(`\nrebase-verify prepare\n`);
-  const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
+  const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, out } = await loadProfileInputs();
   writePracticesInput(out, parsed, tzFlag);
   const input = narrativeInputFor(selected, enrichments, {
     trajectory,
@@ -433,14 +454,13 @@ function mergePracticesAnswers(out, codeBlock, classifiedBy) {
 }
 
 async function cmdFinalize() {
-  const out = outDir();
   console.log(`\nrebase-verify finalize\n`);
-  const narrativeFile = flag("narrative-file", join(out, "narrative.json"));
+  const narrativeFile = flag("narrative-file", join(outPath(), "narrative.json"));
   if (!existsSync(narrativeFile)) {
     console.error(`Missing ${narrativeFile}. Run rebase-verify prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, out } = await loadProfileInputs();
   const merged = mergePracticesAnswers(out, practices, SLASH_COMMAND);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
@@ -575,7 +595,7 @@ async function cmdSubmit({ yes = false } = {}) {
   // bytes that would leave the machine. The file is written even when submit
   // would be blocked: inspection is the point; the exit code says which.
   if (has("dry-run")) {
-    const previewPath = join(process.cwd(), OUT_DIR, "payload-preview.json");
+    const previewPath = join(ensureOut(), "payload-preview.json");
     writeFileSync(previewPath, JSON.stringify(buildPayload(profile), null, 2) + "\n");
     console.log(`\nWrote ${OUT_DIR}/payload-preview.json, the exact JSON \`submit --yes\` would POST (repository names and contact stripped). Nothing was sent.`);
     if (blockers.length) {
@@ -610,17 +630,24 @@ if (sub !== "generate" && (has("agent") || has("model"))) die("--agent and --mod
 // No subcommand, a real terminal on both ends and no --yes: the wizard. Everything else is
 // the sub-commands as they always were.
 const interactive = !(argv[0] && !argv[0].startsWith("--")) && process.stdin.isTTY && process.stdout.isTTY && !has("yes");
-if (interactive && rejectedFlags(has)) die(rejectedFlags(has));
 
 async function cmdWizard() {
-  const entry = resolveAgent();
-  const out = outDir();
-  rmSync(join(out, "agent-log.jsonl"), { force: true });
+  const { wizard, clack, live, agents } = await loadOptional(async () => ({
+    wizard: await import("../src/wizard.mjs"),
+    clack: await import("@clack/prompts"),
+    live: await import("../src/live-status.mjs"),
+    agents: await loadAgents(),
+  }));
+  const rejected = wizard.rejectedFlags(has);
+  if (rejected) die(rejected);
+  const { availableAgents, defaultAgent } = agents.registry;
+  const entry = await resolveAgent();
+  const out = outPath();
   const root = logsRoot();
   const flags = sourceFlags();
   const pkg = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
-  const code = await runWizard({
-    ui: { ...clack, live: liveStatus },
+  const code = await wizard.runWizard({
+    ui: { ...clack, live: live.liveStatus },
     out,
     flags: { version: pkg.version, agent: entry?.id, model: flag("model") ?? undefined },
     deps: {
@@ -634,6 +661,8 @@ async function cmdWizard() {
       defaultAgent,
       prepare: (parsed) => {
         QUIET = true;
+        ensureOut();
+        rmSync(join(out, "agent-log.jsonl"), { force: true });
         const inputs = deriveInputs(parsed, out);
         writePracticesInput(out, parsed, tzFlag);
         const inputFile = join(out, "practices-input.json");
@@ -643,8 +672,8 @@ async function cmdWizard() {
           practicesInput: existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, "utf8")) : null,
         };
       },
-      startAgent,
-      runWithAgent,
+      startAgent: agents.acp.startAgent,
+      runWithAgent: agents.run.runWithAgent,
       finish: ({ inputs }, run) => {
         const { practices, narrative, generatedBy } = applyAgentRun(out, inputs.practices, run);
         const profile = assembleWithGroundedness({
@@ -657,7 +686,7 @@ async function cmdWizard() {
           sessions: profile.volume?.sessions ?? 0,
           products: profile.volume?.products ?? 0,
           practices: profile.practices?.items ?? [],
-          file: `${OUT_DIR}/profile.md`,
+          summary: profile.summary ?? null,
         };
       },
       submit: () => cmdSubmit({ yes: true }),

@@ -21,7 +21,7 @@ test("runtime dependencies are exactly the two pinned packages", () => {
     "@clack/prompts": "1.9.0",
     "@agentclientprotocol/sdk": "2.8.0",
   });
-  assert.equal(pkg.engines.node, ">=20");
+  assert.equal(pkg.engines.node, ">=20.12");
 });
 
 test("npm pack ships no test, out, docs or scripts file", () => {

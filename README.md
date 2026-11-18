@@ -10,7 +10,7 @@ This tool makes it visible. You run it on your laptop, you see the profile befor
 
 ## You'll need
 
-Node 20 or newer, one coding agent installed and signed in (or an Anthropic API key), and a terminal. Nothing to clone.
+Node 20.12 or newer, one coding agent installed and signed in (or an Anthropic API key), and a terminal. Nothing to clone.
 
 ## How it goes
 
@@ -26,7 +26,7 @@ To submit later:
 npx rebase-verify submit --yes
 ```
 
-The second way is the Claude Code slash command from a clone. It uses your Claude Code session as the agent and records `slash-command` as the agent in the profile:
+The second way is the Claude Code slash command from a clone. It uses your Claude Code session as the agent and records `slash-command` as the agent in the profile (a narrative you wrote by hand and ran through `prepare` and `finalize` is labelled `slash-command` too):
 
 ```
 git clone https://github.com/letsrebase/rebase-verify
@@ -53,7 +53,7 @@ The tools are switched off where the agent allows it (oh-my-pi, Claude Code). Co
 
 **Model.** The wizard offers the agent's current model by default and lets you pick another. For scripts: `npx rebase-verify generate --agent <id> --model <id> --yes`. `--model` needs `--agent`; `--yes` skips the wizard and every prompt.
 
-**Local log.** `out/agent-log.jsonl` holds every message exchanged with the agent except the agent's startup and sign-in answers: your messages and the agent's answers. It stays on your machine and is never sent. Delete `out/` to remove it.
+**Local log.** `out/agent-log.jsonl` holds every message exchanged with the agent except the answers to initialize and authenticate: your messages and the agent's answers. It stays on your machine and is never sent. Delete `out/` to remove it.
 
 **What is recorded.** The profile records `generatedBy.narrative` and `practices.classifiedBy` as `{ agent, model }`, and the hub shows the latter next to «dal modello della persona, non ricontrollato». The gate figures in "Work practices" hold for claude-opus-4-7 only; any other model is recorded, not measured.
 

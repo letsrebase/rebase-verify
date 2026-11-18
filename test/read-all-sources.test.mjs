@@ -4,7 +4,7 @@
 // break, so each is exercised end-to-end against a synthetic storage tree.
 //
 // Every fixture's `sources` object explicitly disables every source not under
-// test (including omp, cursor and kimi, once registered below) — this machine (and
+// test (including omp, cursor and kimi, once registered below), this machine (and
 // any contributor's) can have real ~/.claude, ~/.codex, ~/.pi, ~/.cursor, and
 // ~/.kimi-code data on disk, and a test that forgets to opt one of them out
 // would silently pick up whatever real logs happen to exist there.

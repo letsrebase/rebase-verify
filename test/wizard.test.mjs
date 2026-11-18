@@ -433,3 +433,66 @@ test("the live status never writes a line wider than the terminal", () => {
   assert.match(line, /…$/);
   live.stop("");
 });
+
+// ---- REB-1149 final review ----
+
+test("the consent note names every part of the narrative input and the npx download", () => {
+  const text = consentText({ id: "claude-code", label: "Claude Code", kind: "acp", download: "@agentclientprotocol/claude-agent-acp@0.108.1" });
+  for (const part of ["project labels", "README and CLAUDE.md excerpts", "lines you added to CLAUDE.md or README over time", "dependency names", "commit subjects", "sampled prompts", "topics you researched", "up to six compaction summaries"]) {
+    assert.ok(text.includes(part), part);
+  }
+  assert.match(text, /Downloads @agentclientprotocol\/claude-agent-acp@0\.108\.1 from npm with npx/);
+  assert.doesNotMatch(consentText({ id: "omp", label: "oh-my-pi", kind: "acp" }), /Downloads/);
+});
+
+test("the agent select hint announces the npx download", async () => {
+  const ui = fakeUi();
+  const { deps } = fakeDeps({ availableAgents: () => [agentEntry("claude-code", { download: "@agentclientprotocol/claude-agent-acp@0.108.1" }), agentEntry("omp")] });
+  await run(ui, deps);
+  const [agentSel] = kinds(ui, "select");
+  assert.match(agentSel[1].options[0].hint, /Downloads @agentclientprotocol\/claude-agent-acp@0\.108\.1 from npm with npx/);
+  assert.doesNotMatch(agentSel[1].options[1].hint, /Downloads/);
+});
+
+test("the summary shows the narrative sentence and the absolute out/profile.md", async () => {
+  const ui = fakeUi();
+  const { deps } = fakeDeps({ finish: () => ({ sessions: 4, products: 1, practices: [], summary: "Builds agent tooling." }) });
+  await runWizard({ ui, deps, flags: {}, out: "/work/out", proc: new EventEmitter(), now: () => 0 });
+  const note = kinds(ui, "note").find((c) => c[2] === "Your profile")[1];
+  assert.match(note, /Builds agent tooling\./);
+  assert.ok(note.includes(join("/work/out", "profile.md")));
+});
+
+test("sending asks whether profile.md was read; No goes back to the choice", async () => {
+  const ui = fakeUi({ select: [undefined, undefined, "submit", "exit"], confirm: [true, false] });
+  const orig = ui.select;
+  ui.select = async (o) => {
+    const v = await orig(o);
+    return v === undefined ? o.initialValue ?? o.options[0].value : v;
+  };
+  const { deps, state } = fakeDeps();
+  assert.equal(await run(ui, deps), 0);
+  const asks = kinds(ui, "confirm").filter((c) => /Have you read out\/profile\.md\? It is what rebase will see\./.test(c[1].message));
+  assert.equal(asks.length, 1);
+  assert.equal(state.submitted, 0);
+  assert.equal(kinds(ui, "select").length, 4, "the choice was shown again");
+});
+
+test("SIGHUP stops the run like SIGTERM, and the exit net restores the cursor", async () => {
+  const ui = fakeUi();
+  const proc = new EventEmitter();
+  const written = [];
+  proc.stdout = { write: (s) => written.push(s) };
+  const { deps } = fakeDeps({
+    runWithAgent: (args) => new Promise((_, rej) => args.signal.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" })))),
+    killGroup: () => {},
+    removeDir: () => {},
+  });
+  const p = runWizard({ ui, deps, flags: {}, out: "out", proc, now: () => 0 });
+  while (!proc.listenerCount("exit")) await new Promise((r) => setImmediate(r));
+  proc.emit("exit");
+  assert.ok(written.includes("\x1b[?25h"));
+  proc.emit("SIGHUP");
+  assert.equal(await p, 130);
+  assert.equal(proc.listenerCount("SIGHUP"), 0);
+});

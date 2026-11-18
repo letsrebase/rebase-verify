@@ -73,7 +73,7 @@ test("example repoLabels in the slash command are fictional (acme-*)", () => {
 });
 
 // --- the Node floor and the payload preview (defect-to-test) -----------------
-// 6. engines >=20 was advisory only: `node bin/rebase-verify.mjs` bypassed npm's
+// 6. engines >=20.12 was advisory only: `node bin/rebase-verify.mjs` bypassed npm's
 //    check entirely and died on old Node with a bare ReferenceError. The floor
 //    now lives in three places that must not drift: engines, the README
 //    requirement line, and the runtime check in bin.
@@ -84,10 +84,10 @@ const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const privacy = readFileSync(new URL("../PRIVACY.md", import.meta.url), "utf8");
 
 test("the Node floor is pinned in engines, README, and the runtime check", () => {
-  assert.equal(pkg.engines?.node, ">=20", "package.json engines must state >=20");
-  assert.ok(readme.includes("Node 20"), "README must state the Node requirement");
+  assert.equal(pkg.engines?.node, ">=20.12", "package.json engines must state >=20.12");
+  assert.ok(readme.includes("Node 20.12 or newer"), "README must state the Node requirement");
   assert.match(binSrc, /process\.versions\.node/, "bin must check the running Node version");
-  assert.match(binSrc, /nodeMajor < 20/, "the runtime floor must match engines (20)");
+  assert.match(binSrc, /< 20\.12|nodeMajor === 20 && nodeMinor < 12/, "the runtime floor must match engines (20.12)");
 });
 
 test("submit --dry-run and its output file are documented in all three user surfaces", () => {
