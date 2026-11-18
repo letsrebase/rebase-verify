@@ -194,3 +194,10 @@ test("the three user texts use no em dash", () => {
     assert.ok(!text.includes("\u2014"), `${name} contains an em dash`);
   }
 });
+
+test("slash command has a model-practices step naming both files and who reads what", () => {
+  assert.ok(command.includes("practices-input.json"));
+  assert.ok(command.includes("practices.json"));
+  assert.ok(command.includes("practices-detail.json"));
+  assert.ok(/60 sessions/.test(command) && /12 messages/.test(command));
+});

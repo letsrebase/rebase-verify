@@ -39,8 +39,9 @@ import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
 import { practicesFiles } from "../src/practices-sample.mjs";
+import { runPracticesStep } from "../src/practices-llm.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
-import { generateNarrative } from "../src/profile-llm.mjs";
+import { anthropicCall, generateNarrative, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
 import { resolveHub } from "../src/hub.mjs";
 import { submitProfile, buildPayload } from "../src/submit.mjs";
@@ -200,8 +201,14 @@ function writePracticesInput(out, parsed, tz) {
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\nrebase-verify generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: codePractices, sources } = await loadProfileInputs(out);
   writePracticesInput(out, parsed, tzFlag);
+  const key = process.env.ANTHROPIC_API_KEY;
+  const step = await runPracticesStep(out, {
+    key, call: key ? anthropicCall(key) : null,
+    warn: () => warnApiKey("the person's own messages from the sampled sessions (already redacted)"),
+  });
+  const practices = step === "written" ? mergePracticesAnswers(out, codePractices) : codePractices;
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
