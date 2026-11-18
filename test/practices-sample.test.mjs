@@ -121,3 +121,55 @@ test("bin writes a fresh input and sample file and removes stale answers", () =>
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+// What the Claude Code adapter hands over for records the person did not type.
+const tagged = (text, extra = {}) => ({ role: "user", ts: "2026-05-01T10:00:00.000Z", textRedacted: text, ...extra });
+const withMsgs = (messages) => ({ sessions: [{ source: "claude-code", sessionId: "x", cwdRaw: "", cwdRedacted: "/h/p/a", messages }] });
+
+test("a sub-agent brief, meta and compaction records are not the person's messages", () => {
+  const session = { messages: [
+    tagged("real message"),
+    tagged("SIDECHAIN agent brief", { isSidechain: true }),
+    tagged("injected context", { isMeta: true }),
+    tagged("compaction summary text", { isCompactSummary: true }),
+  ] };
+  assert.deepEqual(personMessages(session), ["real message"]);
+  assert.deepEqual(sampleSessions(withMsgs(session.messages), { tz: "UTC" }), []); // one left: under the minimum
+  const two = withMsgs([...session.messages, tagged("second real message")]);
+  const out = sampleSessions(two, { tz: "UTC" });
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0].messages, ["real message", "second real message"]);
+});
+
+test("task notifications and compaction continuation turns are not the person's messages", () => {
+  const session = { messages: [
+    tagged("real message"),
+    tagged("<task-notification>agent finished</task-notification>"),
+    tagged("Your task is to create a detailed summary of the conversation so far"),
+    tagged("This session is being continued from a previous conversation that ran out of context."),
+  ] };
+  assert.deepEqual(personMessages(session), ["real message"]);
+  assert.deepEqual(sampleSessions(withMsgs(session.messages), { tz: "UTC" }), []);
+});
+
+test("through the Claude Code adapter: the sub-agent brief never reaches the sample", async () => {
+  const { readClaudeCode } = await import("../src/adapters/claude-code.mjs");
+  const root = mkdtempSync(join(tmpdir(), "rv-sidechain-"));
+  try {
+    mkdirSync(join(root, "proj", "sess1", "subagents"), { recursive: true });
+    const rec = (type, text, extra = {}) => JSON.stringify({
+      type, sessionId: "sess1", cwd: "/h/p/a", uuid: `u${Math.random()}`, timestamp: "2026-05-01T10:00:00.000Z",
+      message: { role: type, content: [{ type: "text", text }] }, ...extra,
+    });
+    writeFileSync(join(root, "proj", "sess1.jsonl"), [rec("user", "real message")].join("\n") + "\n");
+    writeFileSync(join(root, "proj", "sess1", "subagents", "agent-1.jsonl"), [rec("user", "SIDECHAIN agent brief", { isSidechain: true })].join("\n") + "\n");
+    const parsed = readClaudeCode(root);
+    const msgs = parsed.sessions[0].messages.filter((m) => m.role === "user");
+    assert.equal(msgs.length, 2);
+    assert.ok(msgs.some((m) => m.isSidechain === true));
+    assert.deepEqual(sampleSessions(parsed, { tz: "UTC" }), []); // one real message: under the minimum
+    assert.ok(!JSON.stringify(personMessages(parsed.sessions[0])).includes("SIDECHAIN"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

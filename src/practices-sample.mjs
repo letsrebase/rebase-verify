@@ -6,14 +6,26 @@ import { eachSession } from "./practices.mjs";
 import { RUBRIC } from "./practices-rules.mjs";
 import { redactText } from "./redact.mjs";
 import { scrubProperNouns } from "./profile-llm.mjs";
+import { SYSTEM_PROMPT_RE } from "./system-text.mjs";
 
 export const MAX_SESSIONS = 60;
 export const MAX_MESSAGES = 12;
 export const MAX_CHARS = 600;
 
+// Only what the person typed: not sub-agent briefs (sidechain records), injected
+// or compaction records, nor the framework's own prompts.
 const ownTexts = (session) =>
   (Array.isArray(session?.messages) ? session.messages : [])
-    .filter((m) => m?.role === "user" && typeof m.textRedacted === "string" && m.textRedacted.trim() !== "")
+    .filter(
+      (m) =>
+        m?.role === "user" &&
+        !m.isSidechain &&
+        !m.isMeta &&
+        !m.isCompactSummary &&
+        typeof m.textRedacted === "string" &&
+        m.textRedacted.trim() !== "" &&
+        !SYSTEM_PROMPT_RE.test(m.textRedacted.trim()),
+    )
     .map((m) => m.textRedacted);
 
 // The person's own messages: the first and evenly spaced ones when there are
