@@ -149,7 +149,7 @@ export const CODE_PRACTICES = [
     method: "code",
     definition: "A planning step came before the first file edit in the session: plan mode, a task list, or writing a plan or spec file.",
     denominator: "Sessions with an edit.",
-    needs: [CMD, PATH],
+    needs: [PATH],
   },
   {
     id: "reviews_changes",
