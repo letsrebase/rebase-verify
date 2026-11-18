@@ -10,6 +10,7 @@
 //                                     # out/practices-input.json and out/practices-sample.json
 //   rebase-verify finalize            # finalize using --narrative-file out/narrative.json
 //   rebase-verify submit              # sign in in the browser, then send out/candidate.json to rebase
+//   rebase-verify --version | -v      # print the package version and exit
 //
 // Everything generated lands in ./out, one folder to inspect, one to delete,
 // one line of .gitignore. Nothing is written to the repo root.
@@ -33,6 +34,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { writeFileSync, existsSync, readFileSync, mkdirSync, rmSync } from "node:fs";
 import { readClaudeCode } from "../src/adapters/claude-code.mjs";
 import { readAllSources } from "../src/sources.mjs";
@@ -68,6 +70,12 @@ if (nodeMajor < 20) {
   console.error(`rebase-verify needs Node 20 or newer; you're running ${process.version}.`);
   console.error(`Install a current Node from https://nodejs.org (or: nvm install 20).`);
   process.exit(1);
+}
+
+if (process.argv[2] === "--version" || process.argv[2] === "-v") {
+  const pkgUrl = new URL("../package.json", import.meta.url);
+  console.log(JSON.parse(readFileSync(fileURLToPath(pkgUrl), "utf8")).version);
+  process.exit(0);
 }
 
 const SUB_COMMANDS = new Set(["generate", "prepare", "finalize", "submit"]);

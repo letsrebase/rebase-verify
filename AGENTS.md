@@ -31,6 +31,10 @@ Every change is one of two kinds, decided before the branch exists.
 When in doubt, it is upstream-able: the rule is to give back everything that fits the
 original.
 
+## Runtime dependencies and CI
+
+Until 2026-11-18 the fork had no runtime dependencies and CI ran `npm test` on a bare checkout. It now ships on npm (`npx rebase-verify`, Lorenzo's call 2026-11-18) with an interactive wizard and coding agents driven over ACP, so it has exactly two pinned runtime dependencies, `@clack/prompts` and `@agentclientprotocol/sdk`, and every CI leg runs `npm ci` before `npm test`. Do not add a third; agent adapters are started with `npx -y <pkg>@<pinned version>`, never installed as dependencies. Commit `package-lock.json`.
+
 ## Remotes and syncing
 
 ```
