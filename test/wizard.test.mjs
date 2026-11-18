@@ -8,17 +8,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
-import { runWizard, consentText, statusLine } from "../src/wizard.mjs";
+import { runWizard, consentText, statusLine, rejectedFlags } from "../src/wizard.mjs";
+import { liveStatus } from "../src/live-status.mjs";
 import { AgentAuthError } from "../src/agents/acp.mjs";
 
 const CANCEL = Symbol("cancel");
 const BIN = fileURLToPath(new URL("../bin/rebase-verify.mjs", import.meta.url));
 
-const agentEntry = (id, over = {}) => ({ id, label: id.toUpperCase(), kind: "acp", tested: id !== "kimi", sessions: 0, loginHint: "log in", installHint: `install ${id}`, spec: () => ({ command: id }), ...over });
+const CLEANED = [];
+const agentEntry = (id, over = {}) => ({ cleanup: (d) => (CLEANED.push(d), []), id, label: id.toUpperCase(), kind: "acp", tested: id !== "kimi", sessions: 0, loginHint: "log in", installHint: `install ${id}`, spec: () => ({ command: id }), ...over });
 
 // answers: queue per prompt kind; a CANCEL entry cancels that prompt.
 function fakeUi(answers = {}) {
   const calls = [];
+  CLEANED.length = 0;
   const queue = Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, [...v]]));
   const take = (kind, dflt) => {
     const q = queue[kind];
@@ -39,6 +42,7 @@ function fakeUi(answers = {}) {
     note: (m, t) => calls.push(["note", m, t]),
     log: { info: (m) => calls.push(["log.info", m]), error: (m) => calls.push(["log.error", m]), warn: (m) => calls.push(["log.warn", m]) },
     spinner: spin,
+    live: (o) => ({ ...spin(), onCancel: o.onCancel }),
     multiselect: async (o) => (calls.push(["multiselect", o]), take("multiselect", o.initialValues)),
     select: async (o) => (calls.push(["select", o]), take("select", o.initialValue ?? o.options[0].value)),
     confirm: async (o) => (calls.push(["confirm", o]), take("confirm", true)),
@@ -59,7 +63,7 @@ function fakeDeps(over = {}) {
     prepare: (parsed) => (state.prepared.push(parsed), { narrativeInput: { n: 1 }, practicesInput: { p: 1 } }),
     startAgent: async (spec, opts) => {
       state.started.push({ spec, opts });
-      opts.onEvent?.({ kind: "started", cwd: "/tmp/rebase-verify-agent-run-x" });
+      opts.onEvent?.({ kind: "started", cwd: "/tmp/rebase-verify-agent-run-x", pid: 4242 });
       return session;
     },
     runWithAgent: async (args) => {
@@ -274,4 +278,132 @@ test("the bin never starts the wizard without a TTY", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("the live status maps Ctrl-C to onCancel and restores the terminal", () => {
+  const handlers = [];
+  const writes = [];
+  const raw = [];
+  const input = {
+    isTTY: true, isRaw: false, isPaused: () => true,
+    setRawMode: (v) => raw.push(v), resume() {}, pause() { raw.push("pause"); },
+    on: (ev, fn) => handlers.push([ev, fn]), off: (ev, fn) => { const i = handlers.findIndex(([e, f]) => e === ev && f === fn); if (i >= 0) handlers.splice(i, 1); },
+  };
+  let cancelled = 0;
+  const live = liveStatus({ onCancel: () => cancelled++, input, output: { write: (t) => writes.push(t) }, style: (_c, t) => t, delay: 1e6 });
+  live.start("Starting");
+  assert.deepEqual(raw, [true]);
+  assert.equal(handlers.length, 1);
+  handlers[0][1](Buffer.from("a"));
+  assert.equal(cancelled, 0);
+  handlers[0][1](Buffer.from("\x03"));
+  assert.equal(cancelled, 1);
+  live.message("Writing");
+  live.stop("Done");
+  assert.deepEqual(raw, [true, false, "pause"], "raw mode restored, stdin paused again");
+  assert.equal(handlers.length, 0);
+  assert.match(writes.join(""), /◇  Done/);
+  live.stop("again");
+  assert.equal(writes.join("").match(/Done/g).length, 1, "stop is idempotent");
+});
+
+test("Ctrl-C on the live status during the run aborts it and exits 130 with cleanup", async () => {
+  const ui = fakeUi();
+  const { deps, state } = fakeDeps({
+    runWithAgent: async (args) => {
+      ui.calls.find((c) => c[0] === "spinner.start" && /run with/.test(c[1]));
+      lastLive.onCancel();
+      assert.equal(args.signal.aborted, true);
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    },
+  });
+  let lastLive;
+  const mk = ui.live;
+  ui.live = (o) => (lastLive = mk(o));
+  assert.equal(await run(ui, deps), 130);
+  assert.equal(state.finished.length, 0);
+});
+
+test("the exit net kills the agent group and removes the run dir and transcript", async () => {
+  const ui = fakeUi();
+  const proc = new EventEmitter();
+  const killed = [];
+  const removed = [];
+  const { deps } = fakeDeps({
+    killGroup: (pid) => killed.push(pid),
+    removeDir: (d) => removed.push(d),
+    runWithAgent: async () => {
+      proc.emit("exit");
+      return { narrative: {}, practicesAnswers: null, used: { agent: "omp", model: null } };
+    },
+  });
+  await runWizard({ ui, deps, flags: { version: "1" }, out: "out", proc, now: () => 0 });
+  assert.deepEqual(killed, [4242]);
+  assert.deepEqual(removed, ["/tmp/rebase-verify-agent-run-x"]);
+  assert.deepEqual(CLEANED, ["/tmp/rebase-verify-agent-run-x"]);
+  assert.equal(proc.exitCode, 130);
+  assert.equal(proc.listenerCount("exit"), 0);
+});
+
+test("no exit handler is left once the run is over", async () => {
+  const ui = fakeUi();
+  const proc = new EventEmitter();
+  const { deps } = fakeDeps();
+  await runWizard({ ui, deps, flags: { version: "1" }, out: "out", proc, now: () => 0 });
+  assert.equal(proc.listenerCount("exit"), 0);
+  assert.equal(proc.exitCode, undefined);
+});
+
+for (const [name, answers] of [
+  ["a cancelled model select", { select: [undefined, CANCEL] }],
+  ["a declined consent", { confirm: [false] }],
+  ["a cancelled consent", { confirm: [CANCEL] }],
+]) {
+  test(`${name} removes the transcript after closing the session`, async () => {
+    const ui = fakeUi(answers);
+    const { deps, state } = fakeDeps();
+    const orig = ui.select;
+    ui.select = async (o) => {
+      const v = await orig(o);
+      return v === undefined ? o.initialValue ?? o.options[0].value : v;
+    };
+    await run(ui, deps);
+    assert.equal(state.closed, 1);
+    assert.deepEqual(CLEANED, ["/tmp/rebase-verify-agent-run-x"]);
+  });
+}
+
+test("the consent mentions the local log only for agents, and carries the API notice", () => {
+  const api = consentText(agentEntry("anthropic-api", { kind: "api", label: "Anthropic API (your key)" }));
+  assert.doesNotMatch(api, /agent-log/);
+  assert.match(api, /unset ANTHROPIC_API_KEY/);
+  assert.match(consentText(agentEntry("omp")), /agent-log\.jsonl/);
+  assert.match(api, /compaction summaries/);
+});
+
+test("the API run's stderr notice is silenced, the consent already says it", async () => {
+  const ui = fakeUi();
+  const { deps, state } = fakeDeps();
+  await run(ui, deps);
+  assert.equal(typeof state.ran[0].warn, "function");
+  assert.equal(state.ran[0].warn(), undefined);
+});
+
+test("a model the agent refuses is named by the id that was chosen", async () => {
+  const ui = fakeUi();
+  const { ModelNotOfferedError } = await import("../src/agents/acp.mjs");
+  const { deps } = fakeDeps({
+    runWithAgent: async () => {
+      throw new ModelNotOfferedError("m2");
+    },
+  });
+  assert.equal(await run(ui, deps), 2);
+  assert.ok(ui.calls.some((c) => c[0] === "log.error" && /model "m2"/.test(c[1])));
+});
+
+test("the wizard refuses flags that belong to a sub-command", () => {
+  const has = (set) => (f) => set.includes(f);
+  assert.equal(rejectedFlags(has([])), null);
+  assert.match(rejectedFlags(has(["narrative-file"])), /^--narrative-file needs a sub-command/);
+  assert.match(rejectedFlags(has(["narrative-file", "dry-run"])), /^--narrative-file and --dry-run need a sub-command/);
 });

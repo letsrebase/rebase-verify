@@ -3,6 +3,8 @@
 // decisions and copy only; every step that touches the logs, the agents or
 // the disk is injected, and the bin passes the same functions the sub-commands
 // use. `ui` is the @clack/prompts surface.
+import { rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } from "./agents/acp.mjs";
 import { RUN_SYSTEM } from "./agents/run.mjs";
 
@@ -37,14 +39,17 @@ export function consentText(agent) {
     lines.push(`These go to ${agent.label} and to its model provider:`);
   }
   lines.push(
-    `- the narrative input: project labels, README and CLAUDE.md excerpts, dependency names, commit subjects and sampled prompts;`,
+    `- the narrative input: project labels, README and CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts and up to six compaction summaries;`,
     `- up to 60 sessions × 12 of your own messages, redacted, so the practices can be classified.`,
     ``,
     `rebase receives nothing until you choose to submit.`,
-    `A local log of the exchange is written to out/agent-log.jsonl.`,
   );
+  if (agent.kind !== "api") lines.push(`A local log of the exchange is written to out/agent-log.jsonl.`);
   if (agent.kind === "api") {
-    lines.push(`No tools are involved: it is a plain request.`);
+    lines.push(
+      `No tools are involved: it is a plain request.`,
+      `To stay fully local until submit, stop here, unset ANTHROPIC_API_KEY and use the /rebase-verify slash command instead.`,
+    );
   } else if (agent.id === "omp" || agent.id === "claude-code") {
     lines.push(`${agent.label} starts with its tools switched off, and the run stops if it tries to use one.`);
   } else if (agent.id === "codex") {
@@ -56,6 +61,26 @@ export function consentText(agent) {
     lines.push(`${agent.label} keeps a transcript of the run; rebase-verify removes it afterwards and never reads it.`);
   }
   return lines.join("\n");
+}
+
+/** The one-line reason the wizard cannot take these flags, or null. They belong to a sub-command. */
+export function rejectedFlags(has) {
+  const bad = ["narrative-file", "dry-run"].filter((f) => has(f));
+  return bad.length ? `${bad.map((f) => `--${f}`).join(" and ")} ${bad.length > 1 ? "need" : "needs"} a sub-command (generate, finalize or submit); the wizard does not use ${bad.length > 1 ? "them" : "it"}.` : null;
+}
+
+// Last resort when the process is going down while an agent is alive: the agent runs in its
+// own process group, which a dying parent does not take with it.
+function killGroup(pid) {
+  if (!pid) return;
+  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true });
+  else {
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch {
+      // already gone
+    }
+  }
 }
 
 const NO_AGENT_NOTE = [
@@ -82,19 +107,47 @@ const NO_AGENT_NOTE = [
 export async function runWizard({ ui, deps, flags = {}, out, proc = process, now = Date.now }) {
   const ctl = new AbortController();
   const stop = () => ctl.abort();
+  const kill = deps.killGroup ?? killGroup;
+  const removeDir = deps.removeDir ?? ((d) => rmSync(d, { recursive: true, force: true }));
+  let agent = null;
   let session = null;
   let runDir = null;
+  let pid = null;
   let sessionHandedOver = false;
+  let chosenModel;
 
+  // Closes an agent the wizard still owns, then removes the transcript its session left
+  // (best effort). Once the run has the session, the run does both itself.
   const closeSession = async () => {
-    if (session && !sessionHandedOver) {
-      try {
-        await session.close();
-      } catch {
-        // the run's own outcome stays
-      }
+    if (sessionHandedOver) return;
+    try {
+      await session?.close();
+    } catch {
+      // the run's own outcome stays
     }
     session = null;
+    if (runDir && agent?.cleanup) {
+      try {
+        agent.cleanup(runDir);
+      } catch {
+        // a cleanup that cannot run must not hide the outcome
+      }
+    }
+    runDir = null;
+  };
+  // The process is exiting while an agent may be alive (a signal the wizard did not see,
+  // an uncaught error): kill its group, remove the run dir and its transcript, synchronously.
+  const onExit = () => {
+    kill(pid);
+    if (runDir) {
+      try {
+        removeDir(runDir);
+      } catch {}
+      try {
+        agent?.cleanup?.(runDir);
+      } catch {}
+    }
+    if (!proc.exitCode) proc.exitCode = 130;
   };
   const cancelled = async (v) => {
     if (!ui.isCancel(v)) return false;
@@ -155,7 +208,6 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     ui.cancel("Nothing was written or sent.");
     return 1;
   }
-  let agent;
   if (flags.agent) {
     agent = agents.find((a) => a.id === flags.agent);
     if (!agent) {
@@ -186,7 +238,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     }
     if (e instanceof AgentAuthError) ui.log.error(`${agent.label} is not logged in: ${agent.loginHint}.`);
     else if (e instanceof ToolUseError) ui.log.error("The agent tried to use a tool; nothing it wrote was kept.");
-    else if (e instanceof ModelNotOfferedError) ui.log.error(`${agent.label} does not offer model "${e.model ?? flags.model}"${e.offered?.length ? `. It offers: ${e.offered.join(", ")}` : ""}.`);
+    else if (e instanceof ModelNotOfferedError) ui.log.error(`${agent.label} does not offer model "${chosenModel ?? flags.model}"${e.offered?.length ? `. It offers: ${e.offered.join(", ")}` : ""}.`);
     else if (e instanceof AgentStartError) ui.log.error(`${e.message}.`);
     else ui.log.error(e?.message ?? String(e));
     ui.cancel("Nothing was sent.");
@@ -196,7 +248,10 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
   const live = { chars: 0, tokens: null, cost: null };
   let paint = () => {};
   const onEvent = (e) => {
-    if (e.kind === "started") runDir = e.cwd;
+    if (e.kind === "started") {
+      runDir = e.cwd;
+      pid = e.pid ?? null;
+    }
     else if (e.kind === "turn-start") live.chars = 0;
     else if (e.kind === "agent_message_chunk" && e.content?.type === "text") live.chars += e.content.text.length;
     else if (e.kind === "usage_update") {
@@ -213,8 +268,9 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     if (agent.kind === "api") {
       model = flags.model;
     } else {
-      const s = ui.spinner();
+      const s = ui.live({ onCancel: stop });
       s.start(`Starting ${agent.label}`);
+      proc.on("exit", onExit);
       try {
         session = await deps.startAgent(agent.spec({ system: RUN_SYSTEM }), { logFile: `${out}/agent-log.jsonl`, signal: ctl.signal, onEvent });
       } catch (e) {
@@ -224,6 +280,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
       s.stop(`${agent.label} is ready`);
       const models = session.models ?? [];
       if (flags.model) {
+        chosenModel = flags.model;
         if (!models.some((m) => m.id === flags.model)) return await fail(Object.assign(new ModelNotOfferedError(flags.model), { offered: models.map((m) => m.id) }));
         model = flags.model;
       } else if (models.length) {
@@ -234,6 +291,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
         });
         if (await cancelled(m)) return 130;
         model = m;
+        chosenModel = m;
       } else {
         ui.log.info(`${agent.label} offers no model choice: its default model will be used.`);
       }
@@ -250,7 +308,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     }
 
     // 5. The run, with live status.
-    const spin = ui.spinner();
+    const spin = ui.live({ onCancel: stop });
     spin.start(`Starting the run with ${agent.label}`);
     let status = { step: "narrative" };
     let last = -Infinity;
@@ -270,6 +328,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
         practicesInput: prepared.practicesInput,
         logFile: `${out}/agent-log.jsonl`,
         signal: ctl.signal,
+        warn: () => {},
         session: session ?? undefined,
         runDir: runDir ?? undefined,
         onStatus: (s) => {
@@ -280,9 +339,11 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
         },
       });
     } catch (e) {
-      sessionHandedOver = false;
       spin.error(ctl.signal.aborted || e?.name === "AbortError" ? "Stopped" : `${agent.label} could not finish`);
       return await fail(e);
+    } finally {
+      // the run has closed the agent and removed what it left: nothing for the exit net to do
+      proc.off("exit", onExit);
     }
     spin.stop("The narrative and the practices are ready");
     session = null;
@@ -316,8 +377,9 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     }
     return 0;
   } finally {
+    await closeSession();
     proc.off("SIGINT", stop);
     proc.off("SIGTERM", stop);
-    await closeSession();
+    proc.off("exit", onExit);
   }
 }

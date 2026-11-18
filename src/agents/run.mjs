@@ -35,8 +35,9 @@ const typed = (e) =>
  * no answer sees an earlier one. `start` replaces startAgent (tests). `session` (and the
  * `runDir` its "started" event reported) hands in an agent the caller already started, for
  * instance to read its models first; the run closes it like one it started itself.
+ * `warn` replaces the API path's stderr notice (the wizard shows it in its consent note).
  */
-export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal, start = startAgent, session: given = null, runDir: givenDir = null }) {
+export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal, start = startAgent, session: given = null, runDir: givenDir = null, warn = warnApiKey }) {
   const label = agent.label ?? agent.id;
   const fail = (e) => {
     if (signal?.aborted) return e?.name === "AbortError" ? e : Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -73,7 +74,7 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
         if (signal?.aborted) throw fail(new Error("aborted"));
         return call({ system, user });
       },
-      (step) => (step === "narrative" ? warnApiKey() : warnApiKey(PRACTICES_WARN_WHAT)),
+      (step) => (step === "narrative" ? warn() : warn(PRACTICES_WARN_WHAT)),
     );
     return { ...out, used: { agent: agent.id, model: MODEL } };
   }

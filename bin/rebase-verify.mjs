@@ -51,7 +51,8 @@ import { AGENTS, availableAgents, defaultAgent } from "../src/agents/registry.mj
 import { runWithAgent } from "../src/agents/run.mjs";
 import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError, startAgent } from "../src/agents/acp.mjs";
 import * as clack from "@clack/prompts";
-import { runWizard } from "../src/wizard.mjs";
+import { runWizard, rejectedFlags } from "../src/wizard.mjs";
+import { liveStatus } from "../src/live-status.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { MODEL, anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
@@ -609,6 +610,7 @@ if (sub !== "generate" && (has("agent") || has("model"))) die("--agent and --mod
 // No subcommand, a real terminal on both ends and no --yes: the wizard. Everything else is
 // the sub-commands as they always were.
 const interactive = !(argv[0] && !argv[0].startsWith("--")) && process.stdin.isTTY && process.stdout.isTTY && !has("yes");
+if (interactive && rejectedFlags(has)) die(rejectedFlags(has));
 
 async function cmdWizard() {
   const entry = resolveAgent();
@@ -618,7 +620,7 @@ async function cmdWizard() {
   const flags = sourceFlags();
   const pkg = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const code = await runWizard({
-    ui: clack,
+    ui: { ...clack, live: liveStatus },
     out,
     flags: { version: pkg.version, agent: entry?.id, model: flag("model") ?? undefined },
     deps: {
