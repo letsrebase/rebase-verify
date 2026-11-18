@@ -1,6 +1,6 @@
 # Security policy
 
-work-profile processes freelancers' local Claude Code logs and produces a profile that
+rebase-verify processes freelancers' local Claude Code logs and produces a profile that
 may be sent to rebase for review. That makes two things security-sensitive:
 the redaction/privacy pipeline on the candidate's machine, and the rebase hub's
 sign-in and intake endpoints that receive submissions.
@@ -9,9 +9,9 @@ sign-in and intake endpoints that receive submissions.
 
 **Please do not open a public issue for security problems.**
 
-- Preferred: [GitHub private vulnerability reporting](https://github.com/letsrebase/work-profile/security/advisories/new)
+- Preferred: [GitHub private vulnerability reporting](https://github.com/letsrebase/rebase-verify/security/advisories/new)
   (Security tab → Report a vulnerability).
-- Or email **ciao@letsrebase.com** with subject `SECURITY: work-profile`.
+- Or email **ciao@letsrebase.com** with subject `SECURITY: rebase-verify`.
 
 We acknowledge within **5 working days** and keep you updated until resolution.
 Credit in the fix's release notes is yours if you want it.

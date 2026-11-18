@@ -48,8 +48,8 @@ const harness = () => {
 
 test("resolveHub: default, env, flag, and the preview shorthand", () => {
   assert.equal(resolveHub(undefined, {}), DEFAULT_HUB);
-  assert.equal(resolveHub(undefined, { WORK_PROFILE_HUB_URL: "https://env.test/" }), "https://env.test");
-  assert.equal(resolveHub("https://flag.test", { WORK_PROFILE_HUB_URL: "https://env.test" }), "https://flag.test");
+  assert.equal(resolveHub(undefined, { REBASE_VERIFY_HUB_URL: "https://env.test/" }), "https://env.test");
+  assert.equal(resolveHub("https://flag.test", { REBASE_VERIFY_HUB_URL: "https://env.test" }), "https://flag.test");
   assert.equal(resolveHub("preview", {}), PREVIEW_HUB);
   assert.equal(PREVIEW_HUB, "https://preview.letsrebase.com");
 });
@@ -122,7 +122,7 @@ after(() => {
 });
 
 const tmpProfile = (profile) => {
-  const dir = mkdtempSync(join(tmpdir(), "work-profile-submit-"));
+  const dir = mkdtempSync(join(tmpdir(), "rebase-verify-submit-"));
   tmpDirs.push(dir);
   const path = join(dir, "candidate.json");
   writeFileSync(path, JSON.stringify(profile));
@@ -242,10 +242,10 @@ test("submitProfile: a thrown fetch on the intake says to run submit again and s
   await assert.rejects(submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts }), /run submit again and sign in anew/);
 });
 
-test("every request carries User-Agent work-profile/<package version>", async () => {
+test("every request carries User-Agent rebase-verify/<package version>", async () => {
   const { version } = JSON.parse((await import("node:fs")).readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const { fetchFn, calls } = scriptedHub([json(200, { access_token: "tok" })]);
   await submitProfile(tmpProfile(base()), { hub: HUB, fetchFn, ...harness().opts });
   assert.equal(calls.length, 3);
-  for (const c of calls) assert.equal(c.init.headers["user-agent"], `work-profile/${version}`, c.url);
+  for (const c of calls) assert.equal(c.init.headers["user-agent"], `rebase-verify/${version}`, c.url);
 });

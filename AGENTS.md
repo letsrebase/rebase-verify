@@ -1,6 +1,6 @@
-# AGENTS.md: working on work-profile
+# AGENTS.md: working on rebase-verify
 
-`letsrebase/work-profile` is rebase's fork of
+`letsrebase/rebase-verify` is rebase's fork of
 [Play-New/apply-new](https://github.com/Play-New/apply-new), the MIT-licensed CLI by Play
 New that turns a person's coding-agent logs into a private, redacted work profile. rebase
 uses it so that freelancers can send that profile to the rebase hub, where a person (an
@@ -10,6 +10,8 @@ changing anything. Their privacy rules hold here unchanged: never read `.env`, r
 runs before anything else sees the logs, `repoLabel` never leaves the machine, custom MCP
 servers, skills and commands surface as counts only, and nothing is sent before
 `submit --yes`. Their no-ranking frame does not hold as is: see § Where we depart.
+
+The repository and the tool were called `work-profile` until 2026-11-18, when they were renamed `rebase-verify` (REB-1140); GitHub redirects the old URL.
 
 ## Two kinds of change, and where each one goes
 
@@ -51,8 +53,8 @@ person approves it, and that no model-written score about a person ships before 
 REB-1132 is decided (`docs/design/DECISIONS.md` of `letsrebase/rebase`, 2026-11-17).
 
 The texts a freelancer reads (`README.md`, `PRIVACY.md`, `SECURITY.md`,
-`.claude/commands/work-profile.md`) and the links in `package.json` name rebase as the
-recipient and point at `letsrebase/work-profile`. A change to what `submit` sends or keeps
+`.claude/commands/rebase-verify.md`) and the links in `package.json` name rebase as the
+recipient and point at `letsrebase/rebase-verify`. A change to what `submit` sends or keeps
 changes those texts in the same commit, so that no freelancer is shown a promise of the
 wrong recipient.
 

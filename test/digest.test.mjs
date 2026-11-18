@@ -119,7 +119,7 @@ test("classifies an audit-research project (lots of reads, few mutations)", () =
 // ephemeral-path filter — so the on-disk assertions live here, and buildDigest-
 // level behaviour is exercised on synthetic /Users/... paths below.
 test("detectStack: deps across workspace globs + touched evidence, never .env", () => {
-  const root = mkdtempSync(join(tmpdir(), "work-profile-stack-"));
+  const root = mkdtempSync(join(tmpdir(), "rebase-verify-stack-"));
   try {
     writeFileSync(join(root, "package.json"), JSON.stringify({
       workspaces: ["packages/*"],
@@ -145,7 +145,7 @@ test("detectStack: deps across workspace globs + touched evidence, never .env", 
 });
 
 test("detectStack: a subdirectory session still sees the repo-root manifest", () => {
-  const root = mkdtempSync(join(tmpdir(), "work-profile-subdir-"));
+  const root = mkdtempSync(join(tmpdir(), "rebase-verify-subdir-"));
   try {
     mkdirSync(join(root, ".git"), { recursive: true }); // repo boundary for the walk-up
     writeFileSync(join(root, "package.json"), JSON.stringify({ dependencies: { "@supabase/supabase-js": "*" } }));

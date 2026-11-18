@@ -1,5 +1,5 @@
 // Sign-in against the rebase hub: the device authorization of the hub's
-// work-profile design (a small RFC 8628). The CLI asks for a code, the person
+// work profile design (a small RFC 8628). The CLI asks for a code, the person
 // approves it in the browser, and the CLI polls until it holds an access token.
 // The token is returned to the caller and lives only in memory: it can send one
 // profile and is spent by it, so there is nothing to store and nothing to revoke.
@@ -9,15 +9,15 @@ import { readFileSync } from "node:fs";
 
 // The hub reads the tool version from this header on every request.
 const { version: TOOL_VERSION } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-export const USER_AGENT = `work-profile/${TOOL_VERSION}`;
+export const USER_AGENT = `rebase-verify/${TOOL_VERSION}`;
 
 export const DEFAULT_HUB = "https://letsrebase.com";
 export const PREVIEW_HUB = "https://preview.letsrebase.com";
 
-// --hub <url>, else WORK_PROFILE_HUB_URL, else production. `preview` is a
+// --hub <url>, else REBASE_VERIFY_HUB_URL, else production. `preview` is a
 // shorthand for the preview host.
 export function resolveHub(flagValue, env = process.env) {
-  const raw = (flagValue || env.WORK_PROFILE_HUB_URL || DEFAULT_HUB).trim();
+  const raw = (flagValue || env.REBASE_VERIFY_HUB_URL || DEFAULT_HUB).trim();
   const url = raw === "preview" ? PREVIEW_HUB : raw;
   return url.replace(/\/+$/, "");
 }

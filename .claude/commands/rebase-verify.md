@@ -2,7 +2,7 @@
 description: Work profile: build your agentic work profile using your Claude subscription and send it to rebase for review
 ---
 
-You are running the **narrative step** of `work-profile` for the human in front of you (the candidate). The deterministic pipeline (reading their Claude Code logs, redacting PII, clustering, scoring authenticity) is in `bin/work-profile.mjs`. Your job is to produce the qualitative prose so the candidate's own Claude subscription writes it, no API key needed.
+You are running the **narrative step** of `rebase-verify` for the human in front of you (the candidate). The deterministic pipeline (reading their Claude Code logs, redacting PII, clustering, scoring authenticity) is in `bin/rebase-verify.mjs`. Your job is to produce the qualitative prose so the candidate's own Claude subscription writes it, no API key needed.
 
 The default is **save, don't submit**. Submitting is a separate, explicit action the candidate triggers later.
 
@@ -12,7 +12,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
 2. **Run prepare.** Execute:
    ```
-   node bin/work-profile.mjs prepare
+   node bin/rebase-verify.mjs prepare
    ```
    If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 5 (finalize re-reads the logs, so it needs the same zone).
    Show the candidate the line `… representative: …` from the output. This is the auto-selection of representative projects, 3 to 5, adaptive: flagships by significance, plus a 4th/5th slot only when a project adds a new primary type or comparable significance. `--top N` forces a fixed count if the candidate asks.
@@ -62,7 +62,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
 5. **Run finalize.** Execute:
    ```
-   node bin/work-profile.mjs finalize \
+   node bin/rebase-verify.mjs finalize \
      --narrative-file out/narrative.json
    ```
    This writes `out/candidate.json` (for agents) and `out/profile.md` (for humans).
@@ -92,12 +92,12 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 8. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score`: show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
 
 9. **Tell them how to submit, when ready.** Do NOT submit yourself. Say:
-   > "When you're ready to send it to rebase, close this session and run `node bin/work-profile.mjs submit --yes` from this folder. It opens a browser tab where you sign in to rebase and press «Autorizza», so rebase knows it is you; no name, email or city is sent with the profile. A person at rebase then reads it before it counts: if they approve it, your profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project, which your own model wrote and you reviewed; its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. The profile stays on your machine until you send it. You can also keep it just for yourself. To see exactly what would be sent first (repository names and contact already stripped), run `node bin/work-profile.mjs submit --dry-run`: it writes `out/payload-preview.json` and sends nothing."
+   > "When you're ready to send it to rebase, close this session and run `node bin/rebase-verify.mjs submit --yes` from this folder. It opens a browser tab where you sign in to rebase and press «Autorizza», so rebase knows it is you; no name, email or city is sent with the profile. A person at rebase then reads it before it counts: if they approve it, your profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project, which your own model wrote and you reviewed; its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. The profile stays on your machine until you send it. You can also keep it just for yourself. To see exactly what would be sent first (repository names and contact already stripped), run `node bin/rebase-verify.mjs submit --dry-run`: it writes `out/payload-preview.json` and sends nothing."
 
-   (If the candidate prefers the shorter `work-profile submit --yes`, they can `npm link` once from the repo, but `node bin/work-profile.mjs` works without any setup.)
+   (If the candidate prefers the shorter `rebase-verify submit --yes`, they can `npm link` once from the repo, but `node bin/rebase-verify.mjs` works without any setup.)
 
 ## Notes
 
 - The candidate's Claude Code subscription is doing the LLM work here. No API key required.
-- If the candidate hasn't approved running shell commands, ask permission for the `node bin/work-profile.mjs …` invocations before executing.
+- If the candidate hasn't approved running shell commands, ask permission for the `node bin/rebase-verify.mjs …` invocations before executing.
 - Iteration is free: re-read `out/narrative-input.json`, rewrite `out/narrative.json`, re-run `finalize`. The deterministic pipeline doesn't need to re-run unless they change `--top` or `--tz`.
