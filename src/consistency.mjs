@@ -23,6 +23,7 @@
 import { bandFor, monthSpan } from "./tech-usage.mjs";
 import { labelVocabulary } from "./digest.mjs";
 import { isValidTimezone } from "./days.mjs";
+import { RUBRIC, practicesArtifact } from "./practices-rules.mjs";
 
 export function assessStructure(profile) {
   const issues = [];
@@ -127,6 +128,46 @@ export function assessStructure(profile) {
     if (vol.products != null && t.products > vol.products) issues.push(`${w}: ${t.products} products but the profile has ${vol.products}`);
     if (vol.sessions != null && t.sessions > vol.sessions) issues.push(`${w}: ${t.sessions} sessions but the profile has ${vol.sessions}`);
     if (t.products > t.sessions) issues.push(`${w}: ${t.products} products but only ${t.sessions} sessions`);
+  }
+
+  // Practices invariants (block is optional): a known rubric, ids and methods
+  // from the published list, and counts that are possible given the profile.
+  const pr = profile?.practices;
+  if (pr != null) {
+    const known = new Map(practicesArtifact().practices.map((x) => [x.id, x.method]));
+    if (pr.rubric !== RUBRIC) issues.push(`practices.rubric is "${pr.rubric}" but this tool counts against "${RUBRIC}"`);
+    if (!isValidTimezone(pr.timezone)) issues.push(`practices.timezone "${pr.timezone}" is not a valid IANA timezone`);
+    else if (profile?.intensity?.timezone && profile.intensity.timezone !== pr.timezone) {
+      issues.push(`practices.timezone is ${pr.timezone} but intensity.timezone is ${profile.intensity.timezone}: one generation uses one zone`);
+    }
+    if (!Array.isArray(pr.items)) issues.push("practices.items is not a list");
+    const windowMonths = MONTH_RE.test(profile?.window?.from ?? "") && MONTH_RE.test(profile?.window?.to ?? "") && profile.window.from <= profile.window.to
+      ? monthSpan(profile.window.from, profile.window.to) : null;
+    const seenIds = new Set();
+    for (const x of Array.isArray(pr.items) ? pr.items : []) {
+      const w = `practices.${x?.id}`;
+      if (typeof x?.id !== "string" || !known.has(x.id)) {
+        issues.push(`practices: "${x?.id}" is not a practice of ${RUBRIC}`);
+        continue;
+      }
+      if (seenIds.has(x.id)) issues.push(`${w}: listed more than once`);
+      seenIds.add(x.id);
+      if (x.method !== known.get(x.id)) issues.push(`${w}: method is "${x.method}" but the list counts it by "${known.get(x.id)}"`);
+      const whole = (n) => Number.isInteger(n) && n >= 0;
+      const bad = ["seen", "of", "products", "months"].filter((k) => !whole(x[k]));
+      if (bad.length) {
+        issues.push(`${w}: ${bad.join(", ")} must be whole numbers, 0 or more`);
+        continue;
+      }
+      if (x.seen > x.of) issues.push(`${w}: seen is ${x.seen} but only ${x.of} sessions could show it`);
+      if (vol.sessions != null && x.of > vol.sessions) issues.push(`${w}: of is ${x.of} sessions but the profile has ${vol.sessions}`);
+      if (x.method === "model" && x.of > 60) issues.push(`${w}: of is ${x.of} but a model practice reads at most 60 sessions`);
+      if (vol.products != null && x.products > vol.products) issues.push(`${w}: ${x.products} products but the profile has ${vol.products}`);
+      if (x.products > x.seen) issues.push(`${w}: ${x.products} products but seen in only ${x.seen} sessions`);
+      if (x.months > x.seen) issues.push(`${w}: ${x.months} months but seen in only ${x.seen} sessions`);
+      if (x.seen >= 1 && x.months < 1) issues.push(`${w}: seen in ${x.seen} sessions but months is 0`);
+      if (windowMonths != null && x.months > windowMonths) issues.push(`${w}: ${x.months} months but the profile window spans ${windowMonths}`);
+    }
   }
 
   const auth = profile?.authenticity?.score;

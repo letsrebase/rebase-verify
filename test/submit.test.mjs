@@ -66,3 +66,9 @@ test("everything except repoLabel and contact survives byte-identical", () => {
   delete expected.contact;
   assert.deepEqual(payload, expected);
 });
+
+test("buildPayload sends the practices block as it is", () => {
+  const input = profile();
+  input.practices = { rubric: "rebase-practices/v1", timezone: "UTC", items: [{ id: "checks_before_commit", method: "code", seen: 3, of: 4, products: 1, months: 1 }] };
+  assert.deepEqual(buildPayload(input).practices, input.practices);
+});

@@ -146,3 +146,12 @@ test("percent-format trajectory shifts ground their percent citations", () => {
   const pct = g.anomalies.filter((a) => a.kind === "percent");
   assert.deepEqual(pct, [], `12% and 30% come straight from the shift deltas: ${JSON.stringify(g.anomalies)}`);
 });
+
+test("practices counts support a narrative citing them", () => {
+  const p = baseProfile();
+  p.practices = { rubric: "rebase-practices/v1", timezone: "UTC", items: [{ id: "checks_before_commit", method: "code", seen: 18, of: 25, products: 3, months: 4 }] };
+  p.summary = "Checks ran before the commit in 18 of 25 sessions, across 4 months.";
+  assert.equal(assessGroundedness(p).anomalies.length, 0);
+  p.practices = null;
+  assert.ok(assessGroundedness(p).anomalies.some((a) => a.kind === "number"));
+});

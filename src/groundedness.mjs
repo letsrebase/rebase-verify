@@ -225,6 +225,14 @@ function collectSupportPool(profile) {
     addText(t.lastMonth);
   }
 
+  // Practice counts ("in 18 of 25 sessions, over 4 months").
+  for (const t of profile?.practices?.items ?? []) {
+    addNumber(t.seen);
+    addNumber(t.of);
+    addNumber(t.products);
+    addNumber(t.months);
+  }
+
   // Trajectory numbers. Percent-format shifts (delegation rate, verification
   // rate) hold fractions the prose cites as percents; number/ratio-format
   // shifts (prompt words, research:mutation) are cited as plain numbers.

@@ -7,7 +7,7 @@
 import { DEFAULT_TZ, isValidTimezone, monthKeyFor } from "./days.mjs";
 import { isEphemeral, repoKey, splitTopLevel, stripHeredocs } from "./digest.mjs";
 import {
-  ADAPTERS_WITHOUT, CODE_PRACTICES, isCheckCommand, isCommitCommand, isDesignDocPath, isDiffCommand,
+  ADAPTERS_WITHOUT, CODE_PRACTICES, RUBRIC, isCheckCommand, isCommitCommand, isDesignDocPath, isDiffCommand,
   isPlanPath, isSecurityCommand, isSourcePath, isTestPath, stripToExecutable,
 } from "./practices-rules.mjs";
 
@@ -195,6 +195,13 @@ export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
     return { id: p.id, method: p.method, seen: a.seen, of: a.of, products: a.products.size, months: a.months.size };
   });
   return items.length ? { items } : null;
+}
+
+// The block as the profile carries it: the rubric id and the zone the months
+// were bucketed in travel with the counts. No items, no block.
+export function practicesBlock(items, { tz = DEFAULT_TZ } = {}) {
+  if (!Array.isArray(items) || !items.length) return null;
+  return { rubric: RUBRIC, timezone: tz, items };
 }
 
 // The zone the submit-time re-derivation must bucket months in: the one the
