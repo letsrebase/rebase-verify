@@ -58,6 +58,14 @@ recipient and point at `letsrebase/rebase-verify`. A change to what `submit` sen
 changes those texts in the same commit, so that no freelancer is shown a promise of the
 wrong recipient.
 
+The hub vendors two generated files verbatim: `share/tech-lexicon.json` and
+`share/tech-labels.json`. `npm run lexicon` writes both from the label maps in
+`src/digest.mjs`, and `test/lexicon-artifact.test.mjs` fails when either is stale. The hub
+keeps a `techUsage` row only when its name is in its copy of the labels and drops any other
+(counting it for the admin), so a label added here shows on the hub only after the hub's copy
+is refreshed: open that refresh in `letsrebase/rebase` in the same round of work, following
+`projects/hub/packages/core/src/rebase_core/work_profiles/VENDORED.txt`.
+
 ## What stays upstream's
 
 - `LICENSE` keeps the original copyright notice, as the MIT licence requires.
