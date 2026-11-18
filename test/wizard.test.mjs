@@ -92,11 +92,11 @@ test("accepting every default picks the default agent and the current model, sen
   assert.equal(modelSel[1].initialValue, "m2");
   assert.equal(state.ran.length, 1);
   assert.equal(state.ran[0].model, "m2");
-  assert.equal(state.ran[0].session, state.started.length ? state.ran[0].session : null);
+  assert.equal(state.ran[0].session.currentModel, "m2");
   assert.equal(state.started.length, 1, "the agent is started once and its session reused");
   assert.equal(state.ran[0].runDir, "/tmp/rebase-verify-agent-run-x");
   assert.equal(state.submitted, 0, "the default of the last select is to exit");
-  assert.deepEqual(submitSel[1].options.map((o) => o.value), ["exit", "submit"].sort().reverse().length ? submitSel[1].options.map((o) => o.value) : []);
+  assert.deepEqual(submitSel[1].options.map((o) => o.value), ["submit", "exit"]);
 });
 
 test("the profile is built only from the chosen sources", async () => {
@@ -205,26 +205,21 @@ test("the status line shows the phase, characters, batches and usage", () => {
 
 test("live status redraws at most every 100 ms", async () => {
   const ui = fakeUi();
-  const { deps } = fakeDeps({
-    runWithAgent: async (args) => {
-      args.onStatus({ step: "narrative" });
-      for (let i = 0; i < 5; i++) args.onEvent?.({ kind: "agent_message_chunk", content: { type: "text", text: "x".repeat(100) } });
-      return { narrative: {}, practicesAnswers: null, used: { agent: "omp", model: null } };
-    },
-  });
+  const { deps } = fakeDeps();
+  const seen = {};
   let t = 0;
-  // the fake start captures onEvent so the wizard's own observer sees the chunks
-  const wrapped = { ...deps, startAgent: async (spec, opts) => ((deps._onEvent = opts.onEvent), deps.startAgent(spec, opts)) };
-  wrapped.runWithAgent = async (args) => {
+  const start = deps.startAgent;
+  deps.startAgent = async (spec, opts) => ((seen.onEvent = opts.onEvent), start(spec, opts));
+  deps.runWithAgent = async (args) => {
     args.onStatus({ step: "narrative" });
-    for (let i = 0; i < 5; i++) wrapped._onEvent({ kind: "agent_message_chunk", content: { type: "text", text: "x".repeat(100) } });
+    for (let i = 0; i < 5; i++) seen.onEvent({ kind: "agent_message_chunk", content: { type: "text", text: "x".repeat(100) } });
     t = 150;
-    wrapped._onEvent({ kind: "agent_message_chunk", content: { type: "text", text: "y" } });
+    seen.onEvent({ kind: "agent_message_chunk", content: { type: "text", text: "y" } });
     return { narrative: {}, practicesAnswers: null, used: { agent: "omp", model: null } };
   };
-  await runWizard({ ui, deps: wrapped, flags: { version: "1" }, out: "out", proc: new EventEmitter(), now: () => t });
+  await runWizard({ ui, deps, flags: { version: "1" }, out: "out", proc: new EventEmitter(), now: () => t });
   const msgs = kinds(ui, "spinner.message").map((c) => c[1]);
-  assert.ok(msgs.length <= 3, `got ${msgs.length}: ${msgs}`);
+  assert.equal(msgs.length, 2, `got: ${msgs}`);
   assert.match(msgs.at(-1), /501 chars/);
 });
 

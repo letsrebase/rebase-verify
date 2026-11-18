@@ -32,9 +32,11 @@ const typed = (e) =>
  * (ToolUseError, AgentAuthError, AgentStartError, ModelNotOfferedError with
  * `offered`, AbortError) are thrown as they are; any other failure names the agent.
  * Every turn after the first runs in a new session on the same agent process, so
- * no answer sees an earlier one. `start` replaces startAgent (tests).
+ * no answer sees an earlier one. `start` replaces startAgent (tests). `session` (and the
+ * `runDir` its "started" event reported) hands in an agent the caller already started, for
+ * instance to read its models first; the run closes it like one it started itself.
  */
-export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal, start = startAgent }) {
+export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal, start = startAgent, session: given = null, runDir: givenDir = null }) {
   const label = agent.label ?? agent.id;
   const fail = (e) => {
     if (signal?.aborted) return e?.name === "AbortError" ? e : Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -79,10 +81,10 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
   const log = (extra) => {
     if (logFile) appendFileSync(logFile, JSON.stringify({ t: Date.now(), ...extra }) + "\n");
   };
-  let runDir = null;
-  let session = null;
+  let runDir = givenDir;
+  let session = given;
   try {
-    session = await start(agent.spec({ system: RUN_SYSTEM }), {
+    session ??= await start(agent.spec({ system: RUN_SYSTEM }), {
       logFile,
       signal,
       onEvent: (e) => {

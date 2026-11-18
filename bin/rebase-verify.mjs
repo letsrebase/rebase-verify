@@ -41,15 +41,17 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFileSync, existsSync, readFileSync, mkdirSync, rmSync } from "node:fs";
 import { readClaudeCode } from "../src/adapters/claude-code.mjs";
-import { readAllSources } from "../src/sources.mjs";
+import { SOURCES, readSource, combineSources, readAllSources } from "../src/sources.mjs";
 import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
 import { practicesFiles } from "../src/practices-sample.mjs";
 import { PRACTICES_WARN_WHAT, runPracticesStep } from "../src/practices-llm.mjs";
-import { AGENTS } from "../src/agents/registry.mjs";
+import { AGENTS, availableAgents, defaultAgent } from "../src/agents/registry.mjs";
 import { runWithAgent } from "../src/agents/run.mjs";
-import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } from "../src/agents/acp.mjs";
+import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError, startAgent } from "../src/agents/acp.mjs";
+import * as clack from "@clack/prompts";
+import { runWizard } from "../src/wizard.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { MODEL, anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
@@ -145,6 +147,11 @@ const die = (msg, code = 2) => {
   process.exit(code);
 };
 
+// The wizard owns the terminal while it runs: the pipeline's progress lines stay quiet then.
+let QUIET = false;
+const say = (...a) => { if (!QUIET) console.log(...a); };
+const warn = (...a) => { if (!QUIET) console.error(...a); };
+
 // The agent behind `generate --agent <id>`, checked before any log is read.
 function resolveAgent() {
   if (!has("agent")) {
@@ -200,54 +207,63 @@ async function runAgentStep(entry, { out, narrativeInput }) {
   }
 }
 
-async function loadProfileInputs(out) {
+function logsRoot() {
   let root = flag("root", join(homedir(), ".claude", "projects"));
   if (flag("project")) root = join(root, flag("project"));
+  return root;
+}
+
+async function loadProfileInputs(out) {
+  const root = logsRoot();
   if (!existsSync(root)) { console.error(`No logs at ${root}.`); process.exit(1); }
 
-  console.log(`[1/5] Reading ${root} ...`);
+  say(`[1/5] Reading ${root} ...`);
   // Sources: claude-code is always read; opencode is folded in unless
   // --no-opencode says otherwise. --opencode-json forces the JSON backend
   // over the default sqlite (more complete but slower on huge logs).
   const parsed = readAllSources({ claudeRoot: root, sources: sourceFlags() });
-  console.log(`      claude-code: ${parsed.sessions.filter(s => s.source === "claude-code").length} sessions`);
+  say(`      claude-code: ${parsed.sessions.filter(s => s.source === "claude-code").length} sessions`);
   const oc = parsed.sessions.filter(s => s.source === "opencode");
   if (oc.length) {
     // Surface WHICH backend read opencode: the sqlite db is far more complete
     // than the JSON cache, so a silent fallback to JSON is a coverage drop the
     // user should see, not discover later.
     const backend = parsed.backends?.opencode;
-    console.log(`      opencode${backend ? ` (${backend})` : ""}:    ${oc.length} sessions`);
+    say(`      opencode${backend ? ` (${backend})` : ""}:    ${oc.length} sessions`);
   }
   const cx = parsed.sessions.filter(s => s.source === "codex");
-  if (cx.length) console.log(`      codex:       ${cx.length} sessions`);
+  if (cx.length) say(`      codex:       ${cx.length} sessions`);
   const pi = parsed.sessions.filter(s => s.source === "pi");
-  if (pi.length) console.log(`      pi:          ${pi.length} sessions`);
+  if (pi.length) say(`      pi:          ${pi.length} sessions`);
   const om = parsed.sessions.filter(s => s.source === "omp");
-  if (om.length) console.log(`      omp:         ${om.length} sessions`);
+  if (om.length) say(`      omp:         ${om.length} sessions`);
   const cu = parsed.sessions.filter(s => s.source === "cursor");
-  if (cu.length) console.log(`      cursor:      ${cu.length} sessions`);
+  if (cu.length) say(`      cursor:      ${cu.length} sessions`);
   const ki = parsed.sessions.filter(s => s.source === "kimi");
-  if (ki.length) console.log(`      kimi:        ${ki.length} sessions`);
+  if (ki.length) say(`      kimi:        ${ki.length} sessions`);
+  return deriveInputs(parsed, out);
+}
 
+// Everything computed from the parsed logs; the wizard passes the sources the person chose.
+function deriveInputs(parsed, out) {
   // Timezone the day-based counts (activeDays, streak) are bucketed in. Default
   // UTC (machine-independent); recorded in the profile so the count reproduces.
   // Validated at startup (tzFlag) before any logs are read.
   const tz = tzFlag;
 
-  console.log(`[2/5] Fingerprint, manifest, consistency ...`);
+  say(`[2/5] Fingerprint, manifest, consistency ...`);
   const fingerprint = computeFingerprint(parsed, { tz });
   const forensics = computeForensics(parsed);
 
-  console.log(`[3/5] Deep digest + per-repo clustering (PII redacted: ${parsed.redaction.hits}) ...`);
+  say(`[3/5] Deep digest + per-repo clustering (PII redacted: ${parsed.redaction.hits}) ...`);
   const digest = buildDigest(parsed, { tz });
   const projects = selectRepresentatives(digest.projects, flag("top") ? +flag("top") : "auto");
   const selected = projects.filter((p) => p.selected);
-  console.log(`      ${digest.projectCount} products, ${selected.length}${flag("top") ? "" : " (adaptive 3-5)"} representative: ${selected.map((p) => `${p.repo}[${p.type[0]}]`).join(", ")}`);
+  say(`      ${digest.projectCount} products, ${selected.length}${flag("top") ? "" : " (adaptive 3-5)"} representative: ${selected.map((p) => `${p.repo}[${p.type[0]}]`).join(", ")}`);
 
   const enrichments = selected.map((p) => enrichRepo(p.cwdRaw));
   const contextGap = describeContextGaps(enrichments);
-  if (contextGap) console.error(`      note: ${contextGap}`);
+  if (contextGap) warn(`      note: ${contextGap}`);
   const trajectory = buildTrajectory(parsed);
   const aiRelationship = computeAiRelationship(parsed);
   const agenticLiteracy = computeAgenticLiteracy(parsed);
@@ -259,14 +275,35 @@ async function loadProfileInputs(out) {
   return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, out };
 }
 
-function writeProfile(out, profile) {
+function writeProfile(out, profile, { print = true } = {}) {
   writeFileSync(join(out, "candidate.json"), JSON.stringify(profile, null, 2));
   const md = renderMarkdown(profile);
   writeFileSync(join(out, "profile.md"), md);
+  if (!print) return;
   console.log(md);
   console.log(`Saved: ${OUT_DIR}/candidate.json + ${OUT_DIR}/profile.md`);
   console.log(`To send it to rebase when ready:  rebase-verify submit`);
 }
+
+// What the agent run adds to the profile: the answers merged into the practices block, who
+// wrote the narrative. The answers stay in practices-detail.json, so a later finalize never
+// reads them as the slash command's.
+function applyAgentRun(out, codePractices, run) {
+  if (run.practicesAnswers) writeFileSync(join(out, "practices.json"), JSON.stringify(run.practicesAnswers, null, 2));
+  const practices = run.practicesAnswers ? mergePracticesAnswers(out, codePractices, run.used) : codePractices;
+  rmSync(join(out, "practices.json"), { force: true });
+  return { practices, narrative: run.narrative, generatedBy: { narrative: run.used } };
+}
+
+const narrativeOptionsOf = (i) => ({
+  trajectory: i.trajectory,
+  aiRelationship: i.aiRelationship,
+  agenticLiteracy: i.agenticLiteracy,
+  intensity: i.intensity,
+  distribution: i.distribution,
+  allProjects: i.projects,
+  compactionSummaries: i.parsed.compactionSummaries,
+});
 
 // The model-classified practices: written only when some are published and
 // there is something to read. Both files stay local; the sample file maps the
@@ -280,7 +317,7 @@ function writePracticesInput(out, parsed, tz) {
   if (!files) return;
   writeFileSync(join(out, "practices-input.json"), JSON.stringify(files.input, null, 2));
   writeFileSync(join(out, "practices-sample.json"), JSON.stringify(files.sample, null, 2));
-  console.log(`Wrote ${OUT_DIR}/practices-input.json (${files.sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
+  say(`Wrote ${OUT_DIR}/practices-input.json (${files.sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
 }
 
 async function cmdGenerate() {
@@ -305,13 +342,7 @@ async function cmdGenerate() {
   if (entry) {
     // Nothing is written until the agent has answered both steps and every answer checked out.
     const run = await runAgentStep(entry, { out, narrativeInput: narrativeInputFor(selected, enrichments, narrativeOptions) });
-    if (run.practicesAnswers) writeFileSync(join(out, "practices.json"), JSON.stringify(run.practicesAnswers, null, 2));
-    practices = run.practicesAnswers ? mergePracticesAnswers(out, codePractices, run.used) : codePractices;
-    // The counts are merged; the answers stay in practices-detail.json, so a later finalize
-    // never reads them as the slash command's.
-    rmSync(join(out, "practices.json"), { force: true });
-    narrative = run.narrative;
-    generatedBy = { narrative: run.used };
+    ({ practices, narrative, generatedBy } = applyAgentRun(out, codePractices, run));
   } else {
     const key = process.env.ANTHROPIC_API_KEY;
     const step = await runPracticesStep(out, {
@@ -348,7 +379,7 @@ function assembleWithGroundedness(args) {
   // client names), so a narrative that omitted its filtered pick leaves
   // newVocabulary empty. Say so instead of failing silently.
   if (args.narrative && args.trajectory?.vocabularyCandidates?.length && !args.narrative.trajectory?.vocabulary_adopted?.length) {
-    console.error(`      note: the narrative has no trajectory.vocabulary_adopted, newVocabulary stays empty (raw candidates are never used; re-run the narrative step to fill it)`);
+    warn(`      note: the narrative has no trajectory.vocabulary_adopted, newVocabulary stays empty (raw candidates are never used; re-run the narrative step to fill it)`);
   }
   const draft = assembleProfile(args);
   const groundedness = assessGroundedness(draft);
@@ -393,7 +424,7 @@ function mergePracticesAnswers(out, codeBlock, classifiedBy) {
   try {
     const { block, detail } = mergeModelPractices(codeBlock, answers, sample, ids, { tz: tzFlag, classifiedBy });
     writeFileSync(join(out, "practices-detail.json"), JSON.stringify(detail, null, 2));
-    console.log(`Merged the model's answers for ${sample.length} sessions (per-session detail in ${OUT_DIR}/practices-detail.json, local only).`);
+    say(`Merged the model's answers for ${sample.length} sessions (per-session detail in ${OUT_DIR}/practices-detail.json, local only).`);
     return block;
   } catch (e) {
     return fail(`${answersFile}: ${e.message}.`);
@@ -427,7 +458,7 @@ async function cmdFinalize() {
   }));
 }
 
-async function cmdSubmit() {
+async function cmdSubmit({ yes = false } = {}) {
   // Profiles live in ./out; fall back to the repo root for profiles
   // generated by a version that still wrote there.
   let profilePath = join(process.cwd(), OUT_DIR, "candidate.json");
@@ -554,7 +585,7 @@ async function cmdSubmit() {
     return;
   }
 
-  if (!has("yes")) {
+  if (!(yes || has("yes"))) {
     console.log(`\nTo confirm:  rebase-verify submit --yes`);
     return;
   }
@@ -575,5 +606,63 @@ async function cmdSubmit() {
 
 if (sub !== "generate" && (has("agent") || has("model"))) die("--agent and --model work with generate only.");
 
-const main = { generate: cmdGenerate, prepare: cmdPrepare, finalize: cmdFinalize, submit: cmdSubmit }[sub];
+// No subcommand, a real terminal on both ends and no --yes: the wizard. Everything else is
+// the sub-commands as they always were.
+const interactive = !(argv[0] && !argv[0].startsWith("--")) && process.stdin.isTTY && process.stdout.isTTY && !has("yes");
+
+async function cmdWizard() {
+  const entry = resolveAgent();
+  const out = outDir();
+  rmSync(join(out, "agent-log.jsonl"), { force: true });
+  const root = logsRoot();
+  const flags = sourceFlags();
+  const pkg = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
+  const code = await runWizard({
+    ui: clack,
+    out,
+    flags: { version: pkg.version, agent: entry?.id, model: flag("model") ?? undefined },
+    deps: {
+      sources: SOURCES.filter((s) => s.id === "claude-code" || !flags[s.id]?.disabled),
+      readSource: (id) =>
+        id === "claude-code" && !existsSync(root)
+          ? { source: "claude-code", files: [], sessions: [], compactionSummaries: [], redaction: { hits: 0, charsRemoved: 0 } }
+          : readSource(id, { claudeRoot: root, sources: flags }),
+      combine: combineSources,
+      availableAgents: (sessionsBySource) => availableAgents({ sessionsBySource }),
+      defaultAgent,
+      prepare: (parsed) => {
+        QUIET = true;
+        const inputs = deriveInputs(parsed, out);
+        writePracticesInput(out, parsed, tzFlag);
+        const inputFile = join(out, "practices-input.json");
+        return {
+          inputs,
+          narrativeInput: narrativeInputFor(inputs.selected, inputs.enrichments, narrativeOptionsOf(inputs)),
+          practicesInput: existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, "utf8")) : null,
+        };
+      },
+      startAgent,
+      runWithAgent,
+      finish: ({ inputs }, run) => {
+        const { practices, narrative, generatedBy } = applyAgentRun(out, inputs.practices, run);
+        const profile = assembleWithGroundedness({
+          ...inputs, narrative, practices, generatedBy,
+          manifestHash: inputs.fingerprint.manifest.bundleHash,
+        });
+        writeProfile(out, profile, { print: false });
+        QUIET = false;
+        return {
+          sessions: profile.volume?.sessions ?? 0,
+          products: profile.volume?.products ?? 0,
+          practices: profile.practices?.items ?? [],
+          file: `${OUT_DIR}/profile.md`,
+        };
+      },
+      submit: () => cmdSubmit({ yes: true }),
+    },
+  });
+  process.exit(code);
+}
+
+const main = interactive ? cmdWizard : { generate: cmdGenerate, prepare: cmdPrepare, finalize: cmdFinalize, submit: cmdSubmit }[sub];
 main().catch((e) => { console.error("Error:", e.message); process.exit(1); });
