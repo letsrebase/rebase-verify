@@ -175,9 +175,18 @@ test("README lists every practice id with the first sentence of its definition",
   }
 });
 
-test("PRIVACY discloses the practices counts", () => {
-  assert.match(privacy, /practices/i);
-  assert.match(privacy, /counts/i);
+test("PRIVACY §2 discloses the practices counts", () => {
+  const s2 = privacy.slice(privacy.indexOf("## 2. What we collect"), privacy.indexOf("## 2a."));
+  assert.match(s2, /practices/i);
+  assert.match(s2, /counts/i);
+  assert.match(s2, /never commands, paths or file names/);
+});
+
+test("README and the slash command name the profile section the code writes", () => {
+  const heading = /L\.push\(`\\n## (How the work is done)`\)/.exec(profileSrc)?.[1];
+  assert.ok(heading, "src/profile.mjs no longer writes the practices heading");
+  assert.ok(readme.includes(`"${heading}"`), "README does not name the heading");
+  assert.ok(command.includes(`"${heading}"`), "slash command does not name the heading");
 });
 
 test("the three user texts use no em dash", () => {

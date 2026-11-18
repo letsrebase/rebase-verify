@@ -2,8 +2,10 @@
   "notes": [
     "Commands are read as recorded by the coding agent, which caps each at 240 characters, so a check at the end of a long chained command can be missed.",
     "Paths are compared lower-cased, with a backslash read as a forward slash.",
-    "Leading environment assignments and the npx, uv run, python -m and pnpm exec wrappers are skipped before a command is matched.",
-    "Two runs count as the same check when their command words match: the words before the first flag or path, wrappers dropped, so a narrower run of the same check (pytest tests/a.py after pytest) is the same command."
+    "Leading environment assignments and runner wrappers such as npx, uv run, python -m and pnpm exec are skipped before a command is matched.",
+    "Two runs count as the same check when their command words match: the words before the first flag or path, wrappers dropped, so a narrower run of the same check (pytest tests/a.py after pytest) is the same command.",
+    "A failed command that holds a check counts as a failed check, and in a chain such as npm test && git push the exit status cannot say which part failed, so the chain counts as its first check.",
+    "git diff --stat, git diff --name-only and git show <rev>:<path> are not read as a diff appearing."
   ],
   "practices": [
     {
@@ -72,6 +74,9 @@
       "^(?:npm|pnpm|yarn|bun)\\s+(?:run\\s+)?(?:test|tests|lint|typecheck|type-check|check|build|ci)(?=\\s|$)",
       "^make\\s+(?:test|tests|check|lint|build|ci)(?=\\s|$)"
     ],
+    "commit": [
+      "^git(?:\\s+(?:-C\\s+\\S+|-c\\s+\\S+|--no-pager))*\\s+commit(?=\\s|$)"
+    ],
     "designPaths": [
       "(?:^|\\/)adr\\/",
       "(?:^|\\/)(?:rfcs\\/|docs\\/rfc\\/)",
@@ -87,11 +92,24 @@
       "^git(?:\\s+(?:-C\\s+\\S+|-c\\s+\\S+|--no-pager))*\\s+show(?=\\s|$)(?!.*\\s--(?:stat|numstat|shortstat|name-only|name-status)\\b)(?!.*\\s[^\\s-]\\S*:\\S)",
       "^gh\\s+pr\\s+diff(?=\\s|$)"
     ],
+    "editTools": [
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "MultiEdit"
+    ],
     "planPaths": [
       "(?:^|\\/)plans\\/",
       "(?:^|\\/)(?:[^/]*-plan|plan)\\.md$",
       "(?:^|\\/)specs\\/",
       "(?:^|\\/)[^/]*-spec\\.md$"
+    ],
+    "planningTools": [
+      "ExitPlanMode",
+      "TodoWrite"
+    ],
+    "pullRequest": [
+      "^gh\\s+pr\\s+create(?=\\s|$)"
     ],
     "security": [
       "^(?:npm|pnpm|yarn|bun)\\s+audit(?=\\s|$)",
@@ -105,6 +123,39 @@
       "(?:^|\\/)conftest\\.py$",
       "(?:^|\\/)setup\\.py$",
       "(?:^|\\/)docs\\/"
+    ],
+    "sourceExtensions": [
+      "js",
+      "mjs",
+      "cjs",
+      "jsx",
+      "ts",
+      "mts",
+      "cts",
+      "tsx",
+      "vue",
+      "svelte",
+      "py",
+      "go",
+      "rs",
+      "java",
+      "kt",
+      "kts",
+      "scala",
+      "rb",
+      "php",
+      "cs",
+      "c",
+      "cc",
+      "cpp",
+      "h",
+      "hpp",
+      "swift",
+      "m",
+      "dart",
+      "ex",
+      "exs",
+      "lua"
     ],
     "testPaths": [
       "(?:^|\\/)(?:tests?|__tests__|spec)\\/",

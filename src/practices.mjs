@@ -7,16 +7,13 @@
 import { DEFAULT_TZ, isValidTimezone, monthKeyFor } from "./days.mjs";
 import { isEphemeral, repoKey, splitTopLevel, stripHeredocs } from "./digest.mjs";
 import {
-  ADAPTERS_WITHOUT, CODE_PRACTICES, RUBRIC, isCheckCommand, isCommitCommand, isDesignDocPath, isDiffCommand,
-  isPlanPath, isSecurityCommand, isSourcePath, isTestPath, stripToExecutable,
+  ADAPTERS_WITHOUT, CODE_PRACTICES, EDIT_TOOLS as EDIT_TOOL_NAMES, PLAN_TOOLS as PLAN_TOOL_NAMES, RUBRIC,
+  isCheckCommand, isCommitCommand, isDesignDocPath, isDiffCommand, isPlanPath, isPullRequestCommand, isSecurityCommand, isSourcePath, isTestPath, stripToExecutable,
 } from "./practices-rules.mjs";
 
-// The canonical edit names every adapter maps onto (codex apply_patch and
-// opencode patch arrive as "Edit", cursor StrReplace as "Edit").
-const EDIT_TOOLS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit"]);
-const PLAN_TOOLS = new Set(["ExitPlanMode", "TodoWrite"]);
+const EDIT_TOOLS = new Set(EDIT_TOOL_NAMES);
+const PLAN_TOOLS = new Set(PLAN_TOOL_NAMES);
 
-const PR_CREATE = /^gh\s+pr\s+create(?=\s|$)/;
 const CODE_FILE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx|py|go|rs|rb|java|kt|php|cs|c|cpp|h|swift|sh)$/i;
 
 const subCommands = (cmd) => splitTopLevel(stripHeredocs(String(cmd ?? ""))).map((p) => p.trim()).filter(Boolean);
@@ -75,7 +72,7 @@ function readSession(session) {
           security: isSecurityCommand(part),
           diff: isDiffCommand(part),
           commit: isCommitCommand(part),
-          pr: PR_CREATE.test(stripToExecutable(part)),
+          pr: isPullRequestCommand(part),
         });
       }
     }

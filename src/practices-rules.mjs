@@ -16,7 +16,7 @@ export const TEST_PATH_PATTERNS = [
   { id: "python-test", re: /(?:^|\/)test_[^/]*\.py$/ },
 ];
 
-const SOURCE_EXT = [
+export const SOURCE_EXT = [
   "js", "mjs", "cjs", "jsx", "ts", "mts", "cts", "tsx", "vue", "svelte", "py", "go", "rs", "java", "kt",
   "kts", "scala", "rb", "php", "cs", "c", "cc", "cpp", "h", "hpp", "swift", "m", "dart", "ex", "exs", "lua",
 ];
@@ -126,12 +126,20 @@ export const DIFF_PATTERNS = [
   { id: "gh-pr-diff", re: new RegExp(String.raw`^gh\s+pr\s+diff${END}`) },
 ];
 
-const COMMIT_PATTERNS = [{ id: "git-commit", re: new RegExp(String.raw`^${GIT}\s+commit${END}`) }];
+export const COMMIT_PATTERNS = [{ id: "git-commit", re: new RegExp(String.raw`^${GIT}\s+commit${END}`) }];
+export const PULL_REQUEST_PATTERNS = [{ id: "gh-pr-create", re: new RegExp(String.raw`^gh\s+pr\s+create${END}`) }];
+
+// The canonical edit names every adapter maps onto (codex apply_patch and
+// opencode patch arrive as "Edit", cursor StrReplace as "Edit"), and the tools
+// that are a planning step.
+export const EDIT_TOOLS = ["Edit", "Write", "NotebookEdit", "MultiEdit"];
+export const PLAN_TOOLS = ["ExitPlanMode", "TodoWrite"];
 
 export const isCheckCommand = (cmd) => anyCommand(CHECK_PATTERNS, cmd);
 export const isSecurityCommand = (cmd) => anyCommand(SECURITY_PATTERNS, cmd);
 export const isDiffCommand = (cmd) => anyCommand(DIFF_PATTERNS, cmd);
 export const isCommitCommand = (cmd) => anyCommand(COMMIT_PATTERNS, cmd);
+export const isPullRequestCommand = (cmd) => anyCommand(PULL_REQUEST_PATTERNS, cmd);
 
 // ---- The list ----
 
@@ -201,8 +209,10 @@ const sources = (patterns) => patterns.map(({ re }) => re.source);
 export const NOTES = [
   "Commands are read as recorded by the coding agent, which caps each at 240 characters, so a check at the end of a long chained command can be missed.",
   "Paths are compared lower-cased, with a backslash read as a forward slash.",
-  "Leading environment assignments and the npx, uv run, python -m and pnpm exec wrappers are skipped before a command is matched.",
+  "Leading environment assignments and runner wrappers such as npx, uv run, python -m and pnpm exec are skipped before a command is matched.",
   "Two runs count as the same check when their command words match: the words before the first flag or path, wrappers dropped, so a narrower run of the same check (pytest tests/a.py after pytest) is the same command.",
+  "A failed command that holds a check counts as a failed check, and in a chain such as npm test && git push the exit status cannot say which part failed, so the chain counts as its first check.",
+  "git diff --stat, git diff --name-only and git show <rev>:<path> are not read as a diff appearing.",
 ];
 
 export function practicesArtifact() {
@@ -218,6 +228,11 @@ export function practicesArtifact() {
       checks: sources(CHECK_PATTERNS),
       security: sources(SECURITY_PATTERNS),
       diff: sources(DIFF_PATTERNS),
+      commit: sources(COMMIT_PATTERNS),
+      pullRequest: sources(PULL_REQUEST_PATTERNS),
+      sourceExtensions: SOURCE_EXT,
+      planningTools: PLAN_TOOLS,
+      editTools: EDIT_TOOLS,
     },
   };
 }

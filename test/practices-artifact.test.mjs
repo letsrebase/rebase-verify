@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   practicesArtifact, CHECK_PATTERNS, SECURITY_PATTERNS, DIFF_PATTERNS,
   TEST_PATH_PATTERNS, SOURCE_EXCLUSION_PATTERNS, DESIGN_PATH_PATTERNS, PLAN_PATH_PATTERNS,
+  COMMIT_PATTERNS, PULL_REQUEST_PATTERNS, SOURCE_EXT, PLAN_TOOLS, EDIT_TOOLS,
 } from "../src/practices-rules.mjs";
 
 const artifact = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
@@ -32,6 +33,8 @@ test("the rules lists equal the exported patterns' sources", () => {
   assert.deepEqual(artifact.rules, {
     testPaths: src(TEST_PATH_PATTERNS), sourceExclusions: src(SOURCE_EXCLUSION_PATTERNS), designPaths: src(DESIGN_PATH_PATTERNS), planPaths: src(PLAN_PATH_PATTERNS),
     checks: src(CHECK_PATTERNS), security: src(SECURITY_PATTERNS), diff: src(DIFF_PATTERNS),
+    commit: src(COMMIT_PATTERNS), pullRequest: src(PULL_REQUEST_PATTERNS),
+    sourceExtensions: SOURCE_EXT, planningTools: PLAN_TOOLS, editTools: EDIT_TOOLS,
   });
 });
 test("notes publish the 240-character cap on commands", () => {
