@@ -1,13 +1,15 @@
 // Validation of the model's answers, the merged block, the detail file.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { validateModelAnswers, computeModelPractices, practicesDetail, mergeModelPractices, practicesBlock } from "../src/practices.mjs";
 import { buildPayload } from "../src/submit.mjs";
 import { baseProfile } from "./factories.mjs";
+import { assessStructure } from "../src/consistency.mjs";
+import { PUBLISHED_MODEL_IDS } from "../src/practices-rules.mjs";
 
 const ids = ["asks_for_alternatives", "raises_risks"];
 const sample = [
@@ -111,4 +113,55 @@ test("finalize with a bad answers file exits 2, naming the session, and writes n
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.match(r.stderr, /s01/);
   assert.ok(!candidate && !detail);
+});
+
+test("a published model item passes assessStructure; the one that failed the gate is refused", () => {
+  const many = Array.from({ length: 6 }, (_, i) => ({ id: `s0${i + 1}`, session: `r${i}`, date: "2026-03-05", product: "p1", month: "2026-03" }));
+  const answers = Object.fromEntries(many.map((s) => [s.id, Object.fromEntries([...PUBLISHED_MODEL_IDS, "gives_context_and_constraints"].map((i) => [i, true]))]));
+  const practiceIssues = (idList) => {
+    const p = baseProfile();
+    p.practices = practicesBlock(computeModelPractices(answers, many, idList), { tz: "UTC" });
+    p.intensity = { ...(p.intensity ?? {}), timezone: "UTC" };
+    return assessStructure(p).issues.filter((i) => i.startsWith("practices"));
+  };
+  assert.deepEqual(practiceIssues(PUBLISHED_MODEL_IDS), []);
+  const refused = practiceIssues(["gives_context_and_constraints"]);
+  assert.equal(refused.length, 1);
+  assert.match(refused[0], /gives_context_and_constraints.*not a practice/);
+});
+
+test("end to end: prepare writes the input and the sample, finalize merges the answers", () => {
+  const home = mkdtempSync(join(tmpdir(), "pe-"));
+  const cwd = mkdtempSync(join(tmpdir(), "pe-cwd-"));
+  const flags = ["--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"];
+  const run = (cmd) => spawnSync(process.execPath, [new URL("../bin/rebase-verify.mjs", import.meta.url).pathname, cmd, ...flags], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
+  try {
+    const root = join(home, "projects", "-h-p-x");
+    mkdirSync(root, { recursive: true });
+    const lines = ["first message", "second message", "third message"].map((t, i) => JSON.stringify({ type: "user", sessionId: "s", cwd: "/h/p/x", timestamp: `2026-05-01T10:0${i}:00.000Z`, message: { role: "user", content: t } }));
+    writeFileSync(join(root, "s.jsonl"), lines.join("\n") + "\n");
+    const r1 = run("prepare");
+    assert.equal(r1.status, 0, r1.stdout + r1.stderr);
+    const input = JSON.parse(readFileSync(join(cwd, "out", "practices-input.json"), "utf8"));
+    assert.deepEqual(input.practices.map((p) => p.id), PUBLISHED_MODEL_IDS);
+    for (const p of input.practices) assert.equal(p.positive.length + p.negative.length, 4);
+    assert.deepEqual(input.sessions, [{ id: "s01", messages: ["first message", "second message", "third message"] }]);
+    const sample = JSON.parse(readFileSync(join(cwd, "out", "practices-sample.json"), "utf8"));
+    assert.deepEqual(sample.map((s) => s.id), ["s01"]);
+    writeFileSync(join(cwd, "out", "narrative.json"), JSON.stringify({ summary: "A short test summary.", cognitive: { narrative: "A short test narrative." }, projects: [] }));
+    writeFileSync(join(cwd, "out", "practices.json"), JSON.stringify({ s01: Object.fromEntries(PUBLISHED_MODEL_IDS.map((id, i) => [id, i % 2 === 0])) }));
+    const r2 = run("finalize");
+    assert.equal(r2.status, 0, r2.stdout + r2.stderr);
+    const cand = JSON.parse(readFileSync(join(cwd, "out", "candidate.json"), "utf8"));
+    const items = cand.practices.items;
+    const modelItems = items.filter((i) => i.method === "model");
+    assert.deepEqual(modelItems.map((i) => i.id), PUBLISHED_MODEL_IDS);
+    assert.ok(items.slice(0, items.length - modelItems.length).every((i) => i.method === "code"));
+    assert.deepEqual(modelItems.map((i) => [i.seen, i.of]), PUBLISHED_MODEL_IDS.map((_, i) => [i % 2 === 0 ? 1 : 0, 1]));
+    const detail = JSON.parse(readFileSync(join(cwd, "out", "practices-detail.json"), "utf8"));
+    assert.equal(detail.length, 1);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });

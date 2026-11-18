@@ -21,7 +21,7 @@ claude
 > /rebase-verify
 ```
 
-The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents. Submission is a second step. You can keep the profile for yourself.
+The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents (plus working files described under "Work practices" and "Commands"). Submission is a second step. You can keep the profile for yourself.
 
 ```
 node bin/rebase-verify.mjs submit --yes
@@ -68,9 +68,11 @@ The profile also discloses its own coverage: a `sources` block records which log
 
 ## Work practices
 
-The profile also carries counts of seven work practices. They are counted by code from the tool calls and file paths your logs already contain. No model is involved and nothing new is read. Each one is shown as "seen in N of M sessions", with the number of products and months it spans. It is never a score, a percentage or a total, and nothing here says anything about tone, skill or character. You can read the counts in the "How the work is done" section of `out/profile.md` before you submit anything. That section only appears when at least one practice could be counted in your sessions.
+The profile also carries counts of twelve work practices: seven counted by code and five classified by your own model. Each one is shown as "seen in N of M sessions", with the number of products and months it spans. It is never a score, a percentage or a total, and nothing here says anything about tone, skill or character. You can read the counts in the "How the work is done" section of `out/profile.md` before you submit anything. That section only appears when at least one practice could be counted in your sessions.
 
-Each practice is counted against the sessions where it could have happened (M):
+The seven code practices are counted from the tool calls and file paths your logs already contain. No model is involved and nothing new is read.
+
+Each code practice is counted against the sessions where it could have happened (M):
 
 - `checks_before_commit`: After the last file edit before a git commit, a check ran in the session: tests, a linter, a type check or a build. M is the sessions with a commit.
 - `tests_with_changes`: Both a source file and a test file were edited in the session. M is the sessions that edited a source file.
@@ -79,6 +81,28 @@ Each practice is counted against the sessions where it could have happened (M):
 - `reviews_changes`: Before a commit or a pull request, the diff appeared in the session (git diff, git show or gh pr diff), whoever asked for it; the session cannot show whether anyone read it. M is the sessions with a commit or a pull request.
 - `design_documents`: A design document (an ADR, RFC, spec or design file, by path) was written or edited in the session. M is the sessions with an edit.
 - `security_checks`: A dependency audit or a security scanner ran in the session. M is the sessions with an edit.
+
+The five model practices are classified by the model you already use, not by rebase: the slash-command agent in Claude Code, or your own API key when you run `generate` with `ANTHROPIC_API_KEY` set. They read at most 60 sampled sessions (only sessions with at least two messages from you, spread across products and months) and at most 12 of your own messages in each, first and then evenly spaced, each cut to 600 characters and already redacted. The agent's replies and your files are never read. The model answers one yes or no per practice per session, and nothing else. Tone, feelings, politeness and wording quality are never grounds for a yes. M is the number of sessions classified, at most 60:
+
+- `asks_for_alternatives`: asks for options or trade-offs before choosing one.
+- `pushes_back_with_reason`: rejects or corrects what the agent proposed or did, and says why.
+- `states_done_criteria`: states acceptance criteria, the expected behaviour, or the check that proves it.
+- `raises_risks`: raises a risk: security, data loss, cost, performance, compatibility, rollout.
+- `limits_scope`: cuts, splits or defers part of the work explicitly.
+
+Only the counts leave your machine. The per-session answers stay in `out/practices-detail.json`, which is never sent, and `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json` are deleted when you are done. The hub shows these five as "dal modello della persona, non ricontrollato": it cannot recheck them, because your messages never reach it.
+
+**How the five were checked.** A model practice is published only if it passes two checks at 90% or better. Agreement: the model's answers match a written reference set of 224 sessions (Italian and English, with at least 8 clear cases and 8 near misses per practice, expected answers fixed when written and checked by a blind second reader). Stability: two runs of the model on the same 40 real sessions give the same answer. The run used `claude-opus-4-7`:
+
+| Practice | Agreement | Stability |
+|---|---|---|
+| `asks_for_alternatives` | 224/224 | 39/40 |
+| `pushes_back_with_reason` | 220/224 | 37/40 |
+| `states_done_criteria` | 223/224 | 40/40 |
+| `raises_risks` | 218/224 | 39/40 |
+| `limits_scope` | 220/224 | 36/40 |
+
+A sixth candidate, `gives_context_and_constraints` (explains the goal, the constraints, or who the work is for, before asking for changes), reached 196/224 (87.5%) agreement, below the threshold, so it is not published and is not classified. To run the checks again: `node scripts/practices-gate.mjs agreement` and `node scripts/practices-gate.mjs stability` (see the header of the script for the options).
 
 How it is read:
 
@@ -122,7 +146,7 @@ If you spot something we should change, [open an issue](https://github.com/letsr
 | | |
 |---|---|
 | `generate` *(default)* | full profile, locally |
-| `prepare` | only `out/narrative-input.json`, for writing the narrative manually |
+| `prepare` | `out/narrative-input.json`, for writing the narrative manually, and `out/practices-input.json` with `out/practices-sample.json` for the model practices; `finalize` must get the same `--tz` |
 | `finalize --narrative-file out/narrative.json` | finalize after `prepare` |
 | `submit --dry-run` | write the exact outgoing payload to `out/payload-preview.json`, send nothing |
 | `submit --yes` | sign in to rebase in the browser, then send the profile; a person at rebase reviews it |

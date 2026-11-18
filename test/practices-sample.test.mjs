@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -97,7 +97,7 @@ test("practicesFiles: null with no model practice or no sampled session, else in
   assert.equal(f.sample[0].session, "r1");
 });
 
-test("bin writes no input file while no model practice is published, and removes stale ones", () => {
+test("bin writes a fresh input and sample file and removes stale answers", () => {
   const home = mkdtempSync(join(tmpdir(), "pr-"));
   const cwd = mkdtempSync(join(tmpdir(), "pr-cwd-"));
   try {
@@ -113,8 +113,8 @@ test("bin writes no input file while no model practice is published, and removes
     const r = spawnSync(process.execPath, [bin, "prepare", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.ok(existsSync(join(cwd, "out", "narrative-input.json")));
-    assert.ok(!existsSync(join(cwd, "out", "practices-input.json")));
-    assert.ok(!existsSync(join(cwd, "out", "practices-sample.json")));
+    assert.deepEqual(JSON.parse(readFileSync(join(cwd, "out", "practices-input.json"), "utf8")).sessions.map((x) => x.id), ["s01"]);
+    assert.deepEqual(JSON.parse(readFileSync(join(cwd, "out", "practices-sample.json"), "utf8")).map((x) => x.id), ["s01"]);
     assert.ok(!existsSync(join(cwd, "out", "practices.json")));
   } finally {
     rmSync(home, { recursive: true, force: true });

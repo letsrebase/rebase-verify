@@ -14,7 +14,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
    ```
    node bin/rebase-verify.mjs prepare
    ```
-   If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 5 (finalize re-reads the logs, so it needs the same zone).
+   If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 5. `prepare` and `finalize` must use the same `--tz`: the sampled sessions in `out/practices-sample.json` and every day and month count are bucketed in that zone, and `finalize` re-reads the logs.
    Show the candidate the line `… representative: …` from the output. This is the auto-selection of representative projects, 3 to 5, adaptive: flagships by significance, plus a 4th/5th slot only when a project adds a new primary type or comparable significance. `--top N` forces a fixed count if the candidate asks.
 
 3. **Read `out/narrative-input.json`.** It contains:

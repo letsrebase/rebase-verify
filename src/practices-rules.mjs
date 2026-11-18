@@ -219,7 +219,9 @@ export const NOTES = [
 // One sentence for the artifact and the prompt: the same words in both.
 export const TONE_RULE = "Tone, feelings, politeness and wording quality are never grounds for a yes.";
 
-export const PUBLISHED_MODEL_IDS = [];
+// The five that passed the gate (REB-1146); gives_context_and_constraints
+// reached 87.5% agreement against the 90% threshold and is not published.
+export const PUBLISHED_MODEL_IDS = ["asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "raises_risks", "limits_scope"];
 
 // The six candidates for the model practices; only the published ones leave
 // the machine (PUBLISHED_MODEL_IDS), the gate checks the rest.
@@ -234,13 +236,13 @@ export const MODEL_PRACTICE_CANDIDATES = [
     id: "pushes_back_with_reason", method: "model",
     definition: "rejects or corrects what the agent proposed or did, and says why",
     positive: ["No, don't mock the database here: the bug was in the real query, so the test would hide it.", "That rename breaks the public API for existing users, revert it."],
-    negative: ["No, not like that.", "Looks good, go ahead and commit."],
+    negative: ["No, not like that.", "Why did you choose a map here instead of a list?"],
   },
   {
     id: "states_done_criteria", method: "model",
     definition: "states acceptance criteria, the expected behaviour, or the check that proves it",
     positive: ["Done when the export returns all rows and the integration test for empty results passes.", "It should redirect to /login when the session expires; I'll check that by hand."],
-    negative: ["Make the export work.", "Please finish this soon."],
+    negative: ["Make the export work.", "Make sure it works properly when you are done."],
   },
   {
     id: "gives_context_and_constraints", method: "model",
@@ -266,7 +268,13 @@ export function practicesArtifact() {
   return {
     rubric: RUBRIC,
     notes: NOTES,
-    practices: CODE_PRACTICES.map(({ id, method, definition, denominator }) => ({ id, method, definition, denominator })),
+    practices: [
+      ...CODE_PRACTICES.map(({ id, method, definition, denominator }) => ({ id, method, definition, denominator })),
+      ...PUBLISHED_MODEL_IDS.map((id) => {
+        const { method, definition, positive, negative } = MODEL_PRACTICE_CANDIDATES.find((c) => c.id === id);
+        return { id, method, definition, positive, negative, tone: TONE_RULE };
+      }),
+    ],
     rules: {
       testPaths: sources(TEST_PATH_PATTERNS),
       sourceExclusions: sources(SOURCE_EXCLUSION_PATTERNS),

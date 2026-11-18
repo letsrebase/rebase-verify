@@ -6,7 +6,8 @@
 //
 //   rebase-verify                     # = rebase-verify generate
 //   rebase-verify generate            # build out/profile.md + out/candidate.json locally
-//   rebase-verify prepare             # only emit out/narrative-input.json (no narrative)
+//   rebase-verify prepare             # only emit out/narrative-input.json (no narrative), plus
+//                                     # out/practices-input.json and out/practices-sample.json
 //   rebase-verify finalize            # finalize using --narrative-file out/narrative.json
 //   rebase-verify submit              # sign in in the browser, then send out/candidate.json to rebase
 //
@@ -108,7 +109,8 @@ try {
   process.exit(2);
 }
 
-// Every generated file (narrative-input.json, narrative.json, candidate.json,
+// Every generated file (narrative-input.json, narrative.json, practices-input.json,
+// practices-sample.json, practices.json, practices-detail.json, candidate.json,
 // profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
 const outDir = () => {
