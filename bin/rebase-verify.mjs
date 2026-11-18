@@ -42,7 +42,7 @@ import { buildDigest } from "../src/digest.mjs";
 import { practicesFiles } from "../src/practices-sample.mjs";
 import { runPracticesStep } from "../src/practices-llm.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
-import { anthropicCall, generateNarrative, warnApiKey } from "../src/profile-llm.mjs";
+import { anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
 import { resolveHub } from "../src/hub.mjs";
 import { submitProfile, buildPayload } from "../src/submit.mjs";
@@ -258,8 +258,7 @@ async function cmdPrepare() {
   console.log(`\nrebase-verify prepare\n`);
   const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
   writePracticesInput(out, parsed, tzFlag);
-  const { input } = await generateNarrative(selected, enrichments, {
-    overrideFile: null,
+  const input = narrativeInputFor(selected, enrichments, {
     trajectory,
     aiRelationship,
     agenticLiteracy,
