@@ -1,8 +1,8 @@
-# work-profile
+# rebase-verify
 
-> `work-profile`: show rebase how you work, and get verified for it.
+> `rebase-verify`: show rebase how you work, and get verified for it.
 
-Credit where it is due: this is [`letsrebase/work-profile`](https://github.com/letsrebase/work-profile), rebase's fork of [apply-new](https://github.com/Play-New/apply-new) by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. If approved, the profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project (written by your own model, reviewed by you); its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. `submit` sends to rebase, never to Play New. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
+Credit where it is due: this is [`letsrebase/rebase-verify`](https://github.com/letsrebase/rebase-verify), rebase's fork of [apply-new](https://github.com/Play-New/apply-new) by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. If approved, the profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project (written by your own model, reviewed by you); its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. `submit` sends to rebase, never to Play New. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
 
 A CV is a list of what you did, formatted for keyword scans. For work that happens inside agent logs, it's the wrong surface. The signal that matters (how you decompose, how you verify, what you do when the model misunderstands) already exists in your agent sessions, whichever CLI they happen to live in. A resume can't see it.
 
@@ -15,16 +15,16 @@ Node 20 or newer, Claude Code installed, and a Claude subscription (Pro, Max, or
 ## How it goes
 
 ```
-git clone https://github.com/letsrebase/work-profile
-cd work-profile
+git clone https://github.com/letsrebase/rebase-verify
+cd rebase-verify
 claude
-> /work-profile
+> /rebase-verify
 ```
 
 The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents. Submission is a second step. You can keep the profile for yourself.
 
 ```
-node bin/work-profile.mjs submit --yes
+node bin/rebase-verify.mjs submit --yes
 ```
 
 ## Sources
@@ -90,7 +90,7 @@ Under the EU AI Act (Regulation 2024/1689), systems that filter job applications
 
 You decide which projects rebase sees, so the tool can't see what's missing. Logs of solo work mostly show execution, which means leadership, mentoring, and the work of being with humans is invisible from here. The thresholds (read-to-edit above 2, ≥15 delegations) are empirical: we don't know yet how they hold across hundreds of people. The narrative is written by a model; the prompt constrains it, it doesn't make it neutral. A person at rebase reads each profile by hand, and we're still learning what to look for.
 
-If you spot something we should change, [open an issue](https://github.com/letsrebase/work-profile/issues).
+If you spot something we should change, [open an issue](https://github.com/letsrebase/rebase-verify/issues).
 
 ## Commands
 
@@ -102,7 +102,7 @@ If you spot something we should change, [open an issue](https://github.com/letsr
 | `submit --dry-run` | write the exact outgoing payload to `out/payload-preview.json`, send nothing |
 | `submit --yes` | sign in to rebase in the browser, then send the profile; a person at rebase reviews it |
 
-All commands run as `node bin/work-profile.mjs <sub>` or as `work-profile <sub>` after `npm link`. Common flags: `--top N` (force the project count; default is adaptive 3–5), `--root <dir>`, the per-source roots and opt-outs from the Sources table above, `--hub <url>` (where `submit` sends; default `https://letsrebase.com`, also settable with `WORK_PROFILE_HUB_URL`; `--hub preview` means `https://preview.letsrebase.com`), `--tz <IANA zone>` (bucket the day and month counts (active days, streak, technology-usage months) in your timezone instead of the UTC default; the zone you choose is recorded in the profile, which is also why UTC is the default: a zone names a place, and nothing location-shaped should leave your machine unless you opt in). Without Claude Code, set `ANTHROPIC_API_KEY` and the narrative goes through the API instead of your subscription, note that on this path the narrative input (project labels, README/CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts) is sent to api.anthropic.com under your own key, before any name-stripping; the tool warns when this happens, and an explicit `--narrative-file` always takes precedence over the key. The subscription and manual paths stay fully local until submit. Details in [PRIVACY.md](PRIVACY.md).
+All commands run as `node bin/rebase-verify.mjs <sub>` or as `rebase-verify <sub>` after `npm link`. Common flags: `--top N` (force the project count; default is adaptive 3–5), `--root <dir>`, the per-source roots and opt-outs from the Sources table above, `--hub <url>` (where `submit` sends; default `https://letsrebase.com`, also settable with `REBASE_VERIFY_HUB_URL`; `--hub preview` means `https://preview.letsrebase.com`), `--tz <IANA zone>` (bucket the day and month counts (active days, streak, technology-usage months) in your timezone instead of the UTC default; the zone you choose is recorded in the profile, which is also why UTC is the default: a zone names a place, and nothing location-shaped should leave your machine unless you opt in). Without Claude Code, set `ANTHROPIC_API_KEY` and the narrative goes through the API instead of your subscription, note that on this path the narrative input (project labels, README/CLAUDE.md excerpts, dependency names, commit subjects, sampled prompts) is sent to api.anthropic.com under your own key, before any name-stripping; the tool warns when this happens, and an explicit `--narrative-file` always takes precedence over the key. The subscription and manual paths stay fully local until submit. Details in [PRIVACY.md](PRIVACY.md).
 
 ## Tests
 

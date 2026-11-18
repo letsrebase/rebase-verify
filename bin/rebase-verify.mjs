@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// work-profile: turn your Claude Code logs into a tamper-evident, PII-redacted
+// rebase-verify: turn your Claude Code logs into a tamper-evident, PII-redacted
 // work profile (playnew-profile/v1).
 //
 // Sub-commands (default: generate, save locally, no submit):
 //
-//   work-profile                      # = work-profile generate
-//   work-profile generate             # build out/profile.md + out/candidate.json locally
-//   work-profile prepare              # only emit out/narrative-input.json (no narrative)
-//   work-profile finalize             # finalize using --narrative-file out/narrative.json
-//   work-profile submit               # sign in in the browser, then send out/candidate.json to rebase
+//   rebase-verify                     # = rebase-verify generate
+//   rebase-verify generate            # build out/profile.md + out/candidate.json locally
+//   rebase-verify prepare             # only emit out/narrative-input.json (no narrative)
+//   rebase-verify finalize            # finalize using --narrative-file out/narrative.json
+//   rebase-verify submit              # sign in in the browser, then send out/candidate.json to rebase
 //
 // Everything generated lands in ./out, one folder to inspect, one to delete,
 // one line of .gitignore. Nothing is written to the repo root.
@@ -16,7 +16,7 @@
 // Common flags:
 //   --root <dir>                   # logs root (default ~/.claude/projects)
 //   --hub <url|preview>            # rebase hub for submit (default https://letsrebase.com,
-//                                  # or WORK_PROFILE_HUB_URL; "preview" = preview.letsrebase.com)
+//                                  # or REBASE_VERIFY_HUB_URL; "preview" = preview.letsrebase.com)
 //   --top 4                        # force the number of representative projects
 //                                  # (default: adaptive, 3 to 5)
 //   --tz Europe/Rome               # timezone for day and month counts (activeDays,
@@ -25,7 +25,7 @@
 //   --narrative-file narrative.json
 //
 // Three ways to provide the narrative step (the qualitative prose):
-//   A. Inside Claude Code via .claude/commands/work-profile.md, uses the
+//   A. Inside Claude Code via .claude/commands/rebase-verify.md, uses the
 //      candidate's own subscription, no API key needed.
 //   B. With the Claude API:  set ANTHROPIC_API_KEY and run `generate`.
 //   C. Manually:  `prepare` -> hand-write narrative.json -> `finalize`.
@@ -54,14 +54,14 @@ import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
-// as `node bin/work-profile.mjs`). Imports hoist and evaluate before this line
+// as `node bin/rebase-verify.mjs`). Imports hoist and evaluate before this line
 // runs, so the check only protects us while src/ stays free of import-time
 // Node-20-only syntax and builtins, true today: fetch / FormData /
 // structuredClone all live inside function bodies, and everything parses as
 // ES2022. Without this, old Node dies later with a bare ReferenceError.
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 if (nodeMajor < 20) {
-  console.error(`work-profile needs Node 20 or newer; you're running ${process.version}.`);
+  console.error(`rebase-verify needs Node 20 or newer; you're running ${process.version}.`);
   console.error(`Install a current Node from https://nodejs.org (or: nvm install 20).`);
   process.exit(1);
 }
@@ -176,12 +176,12 @@ function writeProfile(out, profile) {
   writeFileSync(join(out, "profile.md"), md);
   console.log(md);
   console.log(`Saved: ${OUT_DIR}/candidate.json + ${OUT_DIR}/profile.md`);
-  console.log(`To send it to rebase when ready:  work-profile submit`);
+  console.log(`To send it to rebase when ready:  rebase-verify submit`);
 }
 
 async function cmdGenerate() {
   const out = outDir();
-  console.log(`\nwork-profile generate\n`);
+  console.log(`\nrebase-verify generate\n`);
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
 
   console.log(`[4/5] Narrative ...`);
@@ -199,8 +199,8 @@ async function cmdGenerate() {
   if (!narrative) {
     writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
     console.log(`      no narrative yet (no API key, no --narrative-file).`);
-    console.log(`      Inside Claude Code:  /work-profile   (writes ${OUT_DIR}/narrative.json and finalizes)`);
-    console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  work-profile finalize`);
+    console.log(`      Inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
+    console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  rebase-verify finalize`);
     return;
   }
 
@@ -227,7 +227,7 @@ function assembleWithGroundedness(args) {
 
 async function cmdPrepare() {
   const out = outDir();
-  console.log(`\nwork-profile prepare\n`);
+  console.log(`\nrebase-verify prepare\n`);
   const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
   const { input } = await generateNarrative(selected, enrichments, {
     overrideFile: null,
@@ -241,15 +241,15 @@ async function cmdPrepare() {
   });
   writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
   console.log(`Wrote ${OUT_DIR}/narrative-input.json.`);
-  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  work-profile finalize`);
+  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  rebase-verify finalize`);
 }
 
 async function cmdFinalize() {
   const out = outDir();
-  console.log(`\nwork-profile finalize\n`);
+  console.log(`\nrebase-verify finalize\n`);
   const narrativeFile = flag("narrative-file", join(out, "narrative.json"));
   if (!existsSync(narrativeFile)) {
-    console.error(`Missing ${narrativeFile}. Run work-profile prepare first, then write ${OUT_DIR}/narrative.json.`);
+    console.error(`Missing ${narrativeFile}. Run rebase-verify prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
@@ -278,14 +278,14 @@ async function cmdSubmit() {
     console.log(`(using ./candidate.json from an older run, new runs write to ${OUT_DIR}/)`);
   }
   if (!existsSync(profilePath)) {
-    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  work-profile generate`);
+    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  rebase-verify generate`);
     process.exit(2);
   }
   const profile = JSON.parse(readFileSync(profilePath, "utf8"));
   const hub = resolveHub(flag("hub"));
   const links = (profile.projects || []).filter((p) => p.artifact).length;
 
-  console.log(`\nwork-profile submit\n`);
+  console.log(`\nrebase-verify submit\n`);
   console.log(`About to send to rebase (${hub}):`);
   console.log(`  profile: ${profile.volume?.sessions} sessions, ${profile.volume?.products} products`);
   console.log(`  artifact links: ${links}`);
@@ -296,7 +296,7 @@ async function cmdSubmit() {
   console.log(`Controller: Rebase S.r.l. (VAT IT 14971460960). Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
   console.log(`Repository names (repoLabel) are stripped from the payload before it leaves your machine.`);
-  console.log(`Inspect the exact outgoing payload:  work-profile submit --dry-run`);
+  console.log(`Inspect the exact outgoing payload:  rebase-verify submit --dry-run`);
 
   // Pre-flight groundedness: how much of the prose is anchored in the data.
   // Recomputed on the file as it is NOW, not trusted from the embedded score.
@@ -354,9 +354,9 @@ async function cmdSubmit() {
       console.log(`  Claude Code prunes sessions older than its cleanup period (~30 days by default),`);
       console.log(`  and the oldest part of your window aged out after the profile was generated.`);
       console.log(`  Nothing is wrong with what you did: the numbers are just stale.`);
-      console.log(`  Fix: regenerate now and submit right away (work-profile generate, or re-run /work-profile).`);
+      console.log(`  Fix: regenerate now and submit right away (rebase-verify generate, or re-run /rebase-verify).`);
     } else {
-      console.log(`  If your logs were pruned since generation, regenerate (work-profile generate).`);
+      console.log(`  If your logs were pruned since generation, regenerate (rebase-verify generate).`);
     }
   } else {
     console.log(`  structured data is internally consistent and matches your logs`);
@@ -367,15 +367,15 @@ async function cmdSubmit() {
     for (const b of blockers) {
       if (b.kind === "consistency") {
         console.error(`\nConsistency check failed (${b.count} issue${b.count > 1 ? "s" : ""}). Submission blocked.`);
-        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
         console.error(`Note: the intake re-checks groundedness and these invariants server-side.`);
       } else if (b.kind === "groundedness-unscored") {
         console.error(`\nGroundedness could not be scored: the prose has too few checkable anchors for the screen to run. Submission blocked.`);
-        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
         console.error(`Note: the intake flags unscoreable prose server-side as well.`);
       } else if (b.kind === "groundedness-low") {
         console.error(`\nGroundedness is low (${b.score}%). Submission blocked.`);
-        console.error(`Regenerate the profile (work-profile generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
       }
     }
   };
@@ -397,7 +397,7 @@ async function cmdSubmit() {
   }
 
   if (!has("yes")) {
-    console.log(`\nTo confirm:  work-profile submit --yes`);
+    console.log(`\nTo confirm:  rebase-verify submit --yes`);
     return;
   }
   if (blockers.length) {

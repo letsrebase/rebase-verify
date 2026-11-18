@@ -43,7 +43,7 @@ const records = [
 ];
 
 function parseFixture() {
-  const dir = mkdtempSync(join(tmpdir(), "work-profile-win-"));
+  const dir = mkdtempSync(join(tmpdir(), "rebase-verify-win-"));
   try {
     writeFileSync(join(dir, "session.jsonl"), records.map((r) => JSON.stringify(r)).join("\n"));
     return readClaudeCode(dir);
@@ -90,7 +90,7 @@ test("agentic literacy counts authored skills/agents from Windows paths", () => 
 const CODEX_CWD = "C:\\Users\\x\\proj";
 
 function parseCodexFixture() {
-  const root = mkdtempSync(join(tmpdir(), "work-profile-win-codex-"));
+  const root = mkdtempSync(join(tmpdir(), "rebase-verify-win-codex-"));
   try {
     const dir = join(root, "2026", "01", "02");
     mkdirSync(dir, { recursive: true });
@@ -123,7 +123,7 @@ test("codex adapter normalises Windows cwd to POSIX (cwdRedacted, projectLabel)"
 const PI_CWD = "C:\\Users\\x\\proj";
 
 function parsePiFixture() {
-  const root = mkdtempSync(join(tmpdir(), "work-profile-win-pi-"));
+  const root = mkdtempSync(join(tmpdir(), "rebase-verify-win-pi-"));
   try {
     const dir = join(root, "sessions", "--decoy--"); // dir-name encoding irrelevant: header cwd wins
     mkdirSync(dir, { recursive: true });
@@ -157,7 +157,7 @@ test("pi adapter normalises Windows cwd to POSIX (cwdRedacted, projectLabel)", (
 const KIMI_CWD = "C:\\Users\\x\\proj";
 
 function parseKimiFixture() {
-  const root = mkdtempSync(join(tmpdir(), "work-profile-win-kimi-"));
+  const root = mkdtempSync(join(tmpdir(), "rebase-verify-win-kimi-"));
   try {
     const sessionDir = join(root, "sessions", "wd_proj_win", "session_sess-win-kimi");
     const agentDir = join(sessionDir, "agents", "main");
