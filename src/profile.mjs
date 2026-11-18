@@ -184,7 +184,7 @@ export function summarizeSources(parsed) {
 
 // --- assemble ----------------------------------------------------------------
 
-export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, sources }) {
+export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources }) {
   const froms = projects.map((p) => p.from).filter(Boolean).sort();
   const tos = projects.map((p) => p.to).filter(Boolean).sort();
   const selected = projects.filter((p) => p.selected);
@@ -255,6 +255,9 @@ export function assembleProfile({ contact, projects, narrative, fingerprint, for
     distribution: distribution
       ? { ...distribution, narrative: narrative?.distribution?.narrative || null }
       : null,
+    // Per-technology usage counts and bands (optional/nullable: absent on
+    // profiles from older versions). Deterministic, so no narrative rides on it.
+    techUsage: techUsage || null,
     trajectory: trajectory
       ? {
           // Deterministic facts (Lot 1).
@@ -386,6 +389,17 @@ export function renderMarkdown(p) {
     L.push(`- Multi-month products: ${d.multiMonthProducts} / ${d.products} (${Math.round(d.multiMonthShare * 100)}%)`);
     L.push(`Shape: ${d.shape}`);
     if (d.narrative) L.push(`\n${d.narrative}`);
+  }
+
+  if (p.techUsage?.technologies?.length) {
+    const u = p.techUsage;
+    const tzNote = u.timezone && u.timezone !== "UTC" ? ` (months counted in ${u.timezone})` : "";
+    L.push(`\n## Technology usage`);
+    L.push(`Counts per technology detected in the stack, across all products${tzNote}. Sessions are those of the products where it was detected. The band only labels the month counts.`);
+    for (const t of u.technologies) {
+      const span = t.firstMonth === t.lastMonth ? t.firstMonth : `${t.firstMonth} to ${t.lastMonth}`;
+      L.push(`- ${t.name}: ${t.band} · ${t.sessions} sessions · ${t.products} ${t.products === 1 ? "product" : "products"} · ${t.months} ${t.months === 1 ? "month" : "months"} (${span})`);
+    }
   }
 
   if (p.agenticLiteracy) {

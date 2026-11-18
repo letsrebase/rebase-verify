@@ -213,6 +213,18 @@ function collectSupportPool(profile) {
     addNumber(Math.round(dist.multiMonthShare * 100));
   }
 
+  // Technology-usage counts (the prose may cite "Supabase in 7 months"). Names
+  // already join the tech pool through the projects' stacks; names seen only in
+  // non-representative products are pooled here. Months pool as year-months too.
+  for (const t of profile?.techUsage?.technologies ?? []) {
+    for (const w of splitTech(t.name)) tech.add(w);
+    addNumber(t.sessions);
+    addNumber(t.products);
+    addNumber(t.months);
+    addText(t.firstMonth);
+    addText(t.lastMonth);
+  }
+
   // Trajectory numbers. Percent-format shifts (delegation rate, verification
   // rate) hold fractions the prose cites as percents; number/ratio-format
   // shifts (prompt words, research:mutation) are cited as plain numbers.
