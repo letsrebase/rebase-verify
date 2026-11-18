@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import {
   AgentAuthError,
   AgentStartError,
   ModelNotOfferedError,
+  windowsCommandLine,
 } from "../src/agents/acp.mjs";
 import { AGENT_RUN_MARKER } from "../src/agent-run.mjs";
 
@@ -201,3 +202,95 @@ test("log file: every message both ways; initialize response redacted", () =>
     assert.equal(red.msg, undefined);
     assert.ok(!readFileSync(logFile, "utf8").includes("secret@example.com"));
   }));
+
+const gone = async (pid) => {
+  for (let i = 0; i < 200; i++) {
+    try {
+      process.kill(pid, 0);
+    } catch (e) {
+      if (e.code === "ESRCH") return true;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+};
+const markerDirs = () => readdirSync(tmpdir()).filter((n) => n.startsWith(AGENT_RUN_MARKER));
+
+test("tool_call_update for an unseen id trips like a tool_call", () =>
+  run({ FAKE_TOOL: "update" }, null, {}, async (a) => {
+    await assert.rejects(a.prompt("x", {}), (e) => e instanceof ToolUseError && /Ghost/.test(e.message));
+  }));
+
+test("a tool event outside a turn fails the next prompt without sending it", () =>
+  run({ FAKE_LATE_TOOL: "1" }, null, {}, async (a, { events, logFile }) => {
+    await a.prompt("first", {});
+    await new Promise((resolve) => {
+      const t = setInterval(() => events.some((e) => e.kind === "tool_call") && (clearInterval(t), resolve()), 5);
+    });
+    await assert.rejects(a.prompt("second", {}), ToolUseError);
+    const sent = readFileSync(logFile, "utf8").split("\n").filter((l) => l.includes('"session/prompt"') && l.includes('"dir":"out"'));
+    assert.equal(sent.length, 1);
+  }));
+
+test("a trip that the agent ignores ends after the grace period", async () => {
+  await withEnv({ FAKE_TOOL: "nocancel" }, async () => {
+    const events = [];
+    const a = await startAgent({ ...spec({ FAKE_TOOL: 1 }), tripGraceMs: 100 }, { onEvent: (e) => events.push(e) });
+    const cwd = events.find((e) => e.kind === "started").cwd;
+    await assert.rejects(a.prompt("x", {}), ToolUseError);
+    assert.equal(existsSync(cwd), false);
+  });
+});
+
+test("close kills the whole process group (grandchild)", { skip: process.platform === "win32" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "acp-gc-"));
+  const pidFile = join(dir, "pid");
+  try {
+    await withEnv({ FAKE_GRANDCHILD: pidFile }, async () => {
+      const a = await startAgent(spec({ FAKE_GRANDCHILD: 1 }), {});
+      const gpid = Number(readFileSync(pidFile, "utf8"));
+      process.kill(gpid, 0);
+      await a.close();
+      assert.ok(await gone(gpid), "grandchild still alive");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a child that exits at startup or mid-turn is an AgentStartError with its stderr", async () => {
+  await assert.rejects(run({ FAKE_EXIT: "init" }, null, {}, () => {}), (e) => e instanceof AgentStartError && /boom: fake agent died/.test(e.message) && e.message.includes(process.execPath));
+  await run({ FAKE_EXIT: "prompt" }, null, {}, (a) =>
+    assert.rejects(a.prompt("x", {}), (e) => e instanceof AgentStartError && /died mid-turn/.test(e.message)),
+  );
+});
+
+test("a setup failure leaves no temp dir", async () => {
+  const before = markerDirs().length;
+  const dir = mkdtempSync(join(tmpdir(), "acp-blk-"));
+  writeFileSync(join(dir, "file"), "x");
+  try {
+    await assert.rejects(startAgent(spec(), { logFile: join(dir, "file", "sub", "log.jsonl") }));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.equal(markerDirs().length, before);
+});
+
+test("a different system in prompt() is refused when it is fixed at start", async () => {
+  await run({}, spec({}, { systemPromptVia: "meta", system: "SYS" }), {}, async (a) => {
+    await assert.rejects(a.prompt("x", { system: "OTHER" }), /fixed when the agent starts/);
+    assert.equal((await a.prompt("x", { system: "SYS" })).text, "ok");
+    assert.equal((await a.prompt("x", {})).text, "ok");
+  });
+});
+
+test("sessionParams reach session/new", () =>
+  run({}, spec({}, { sessionParams: { extra: 1 } }), {}, async (a, { logFile }) => {
+    const out = readFileSync(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    const created = out.find((l) => l.dir === "out" && l.msg?.method === "session/new");
+    assert.equal(created.msg.params.extra, 1);
+  }));
+
+test("windowsCommandLine quotes args as one string", () =>
+  assert.equal(windowsCommandLine("npx", ["-y", "pkg@1", "a b", 'q"x']), 'npx -y pkg@1 "a b" "q""x"'));

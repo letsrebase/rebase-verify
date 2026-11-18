@@ -58,6 +58,13 @@ export function childEnv(extraNames = [], source = process.env) {
   return env;
 }
 
+// Windows: npx is a .cmd, so it goes through the shell as ONE command string
+// (passing args with shell:true is deprecated, DEP0190).
+export function windowsCommandLine(command, args = []) {
+  const q = (a) => (/[\s"&|<>^()%]/.test(a) || a === "" ? `"${a.replace(/"/g, '""')}"` : a);
+  return [command, ...args].map(q).join(" ");
+}
+
 const abortError = () => Object.assign(new Error("aborted"), { name: "AbortError" });
 const isAuthError = (e) =>
   e?.code === -32000 || (e?.code === -32603 && /no model selected/i.test(JSON.stringify(e.data ?? "") + (e.message ?? "")));
@@ -67,10 +74,27 @@ function flattenOptions(opts = []) {
 }
 const configEntry = (configOptions, category) => (configOptions ?? []).find((o) => o?.category === category);
 
+/**
+ * Start an agent and open one session.
+ *
+ * spec: { command, args, env?, sessionMeta?, sessionParams?, mode?, system?,
+ *         systemPromptVia: "meta" | "param" | "inline", tripGraceMs? }
+ * With via "meta" or "param" the system prompt is fixed at session/new from
+ * `spec.system`; prompt(text, { system }) then rejects a different system
+ * (throws) instead of silently dropping it. With "inline" it is prepended to
+ * the text of each prompt.
+ */
 export async function startAgent(spec, { onEvent = () => {}, logFile, signal } = {}) {
   if (signal?.aborted) throw abortError();
-  const cwd = mkdtempSync(join(tmpdir(), AGENT_RUN_MARKER));
-  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  let cwd;
+  let child;
+  let conn;
+  let closed = false;
+  let closeDone;
+  let exited = false;
+  let exitInfo = null;
+  let stderrTail = "";
+  let exitPromise = Promise.resolve();
   const log = (dir, extra) => {
     if (logFile) appendFileSync(logFile, JSON.stringify({ t: Date.now(), dir, ...extra }) + "\n");
   };
@@ -81,112 +105,146 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
       // a broken observer never breaks the run
     }
   };
-
-  const viaShell = process.platform === "win32" && spec.command === "npx";
-  const child = spawn(spec.command, spec.args ?? [], {
-    cwd,
-    env: childEnv(spec.env),
-    stdio: ["pipe", "pipe", "pipe"],
-    shell: viaShell,
-    windowsHide: true,
-  });
-  let stderrTail = "";
-  child.stderr.on("data", (d) => (stderrTail = (stderrTail + d).slice(-2000)));
-  child.stdin.on("error", () => {});
-  let exited = false;
-  const exitPromise = new Promise((resolve) => {
-    child.once("exit", () => ((exited = true), resolve()));
-    child.once("error", () => ((exited = true), resolve()));
-  });
-  let closed = false;
-  const dead = new Promise((_, reject) => {
-    child.once("error", (e) =>
-      reject(new AgentStartError(e.code === "ENOENT" ? `cannot start "${spec.command}": not found` : `cannot start "${spec.command}": ${e.message}`)),
+  const startErr = () =>
+    new AgentStartError(
+      `the agent "${spec.command}" exited (${exitInfo?.signal ?? exitInfo?.code ?? "unknown"})${stderrTail.trim() ? `: ${stderrTail.trim().split("\n").pop()}` : ""}`,
     );
-    child.once("exit", (code, sig) => {
-      if (!closed) reject(new AgentStartError(`the agent exited (${sig ?? code})${stderrTail.trim() ? `: ${stderrTail.trim().split("\n").pop()}` : ""}`));
-    });
-  });
-  dead.catch(() => {});
 
-  async function close() {
+  function close() {
     if (closed) return closeDone;
     closed = true;
     closeDone = (async () => {
       try {
         conn?.close();
       } catch {}
-      if (!exited && child.pid) {
+      if (child && !exited && child.pid) {
         if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
-        else child.kill("SIGKILL");
-        child.kill();
+        else {
+          // detached: the child leads its own group; npx, the adapter and the CLI it spawns all die
+          try {
+            process.kill(-child.pid, "SIGKILL");
+          } catch {}
+        }
+        try {
+          child.kill("SIGKILL");
+        } catch {}
       }
       await Promise.race([exitPromise, new Promise((r) => setTimeout(r, 10000).unref())]);
-      await rm(cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      if (cwd) await rm(cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     })();
     return closeDone;
   }
-  let closeDone;
-  let conn;
 
-  // Wire log: every message in both directions; initialize/authenticate
-  // responses can carry account data, so only their method is kept.
-  const redactIds = new Map();
-  const base = acp.ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout));
-  const writer = base.writable.getWriter();
-  const stream = {
-    readable: base.readable.pipeThrough(
-      new TransformStream({
-        transform(msg, ctrl) {
-          if (msg && msg.id !== undefined && !msg.method && redactIds.has(msg.id)) {
-            log("in", { method: redactIds.get(msg.id), redacted: true });
-          } else log("in", { msg });
-          ctrl.enqueue(msg);
-        },
-      }),
-    ),
-    writable: new WritableStream({
-      write(msg) {
-        if (msg && msg.id !== undefined && (msg.method === "initialize" || msg.method === "authenticate")) redactIds.set(msg.id, msg.method);
-        log("out", { msg });
-        return writer.write(msg);
-      },
-      close: () => writer.close().catch(() => {}),
-      abort: (r) => writer.abort(r).catch(() => {}),
-    }),
-  };
-
-  let turn = null; // { text, tripped }
+  let turn = null; // { text, tripped, timer, expire }
+  let pendingTrip = null; // a tool event seen outside a turn
   let sessionId = null;
+  const seenTools = new Set();
   const notifyCancel = () => conn.agent.notify("session/cancel", { sessionId }).catch(() => {});
-
-  const app = acp
-    .client({ name: "rebase-verify" })
-    .onRequest("session/request_permission", async ({ params }) => {
-      const reject = params.options?.find((o) => /^reject/.test(o.kind ?? ""));
-      emit({ kind: "permission-refused", toolCall: params.toolCall });
-      return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
-    })
-    .onNotification("session/update", ({ params }) => {
-      const u = params.update;
-      emit({ ...u, kind: u.sessionUpdate });
-      if (!turn) return;
-      if (u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text") turn.text += u.content.text;
-      if (u.sessionUpdate === "tool_call" && !turn.tripped) {
-        turn.tripped = u.title || u.kind || "tool";
-        emit({ kind: "tool-tripped", tool: turn.tripped });
-        notifyCancel();
-      }
-    });
-  conn = app.connect(stream);
-  const call = (method, params) => Promise.race([conn.agent.request(method, params), dead]);
   const onAbort = () => {
     if (sessionId && !closed) notifyCancel();
     close();
   };
-  signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
+    cwd = mkdtempSync(join(tmpdir(), AGENT_RUN_MARKER));
+    if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+    const viaShell = process.platform === "win32" && spec.command === "npx";
+    const spawnOpts = {
+      cwd,
+      env: childEnv(spec.env),
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+      detached: process.platform !== "win32",
+    };
+    child = viaShell
+      ? spawn(windowsCommandLine(spec.command, spec.args ?? []), { ...spawnOpts, shell: true })
+      : spawn(spec.command, spec.args ?? [], spawnOpts);
+    child.stderr.on("data", (d) => (stderrTail = (stderrTail + d).slice(-2000)));
+    child.stdin.on("error", () => {});
+    exitPromise = new Promise((resolve) => {
+      child.once("exit", (code, sig) => ((exited = true), (exitInfo = { code, signal: sig }), resolve()));
+      child.once("error", () => ((exited = true), resolve()));
+    });
+    const dead = new Promise((_, reject) => {
+      child.once("error", (e) =>
+        reject(new AgentStartError(e.code === "ENOENT" ? `cannot start "${spec.command}": not found` : `cannot start "${spec.command}": ${e.message}`)),
+      );
+      child.once("exit", () => {
+        if (!closed) reject(startErr());
+      });
+    });
+    dead.catch(() => {});
+
+    // Wire log: every message both ways; initialize/authenticate responses can
+    // carry account data, so only their method is kept.
+    const redactIds = new Map();
+    const base = acp.ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout));
+    const writer = base.writable.getWriter();
+    const stream = {
+      readable: base.readable.pipeThrough(
+        new TransformStream({
+          transform(msg, ctrl) {
+            if (msg && msg.id !== undefined && !msg.method && redactIds.has(msg.id)) log("in", { method: redactIds.get(msg.id), redacted: true });
+            else log("in", { msg });
+            ctrl.enqueue(msg);
+          },
+        }),
+      ),
+      writable: new WritableStream({
+        write(msg) {
+          if (msg && msg.id !== undefined && (msg.method === "initialize" || msg.method === "authenticate")) redactIds.set(msg.id, msg.method);
+          log("out", { msg });
+          return writer.write(msg);
+        },
+        close: () => writer.close().catch(() => {}),
+        abort: (r) => writer.abort(r).catch(() => {}),
+      }),
+    };
+
+    const trip = (tool) => {
+      emit({ kind: "tool-tripped", tool });
+      if (!turn) return void (pendingTrip ??= tool);
+      if (turn.tripped) return;
+      turn.tripped = tool;
+      notifyCancel();
+      turn.timer = setTimeout(() => turn?.expire(), spec.tripGraceMs ?? 5000);
+      turn.timer.unref?.();
+    };
+
+    const app = acp
+      .client({ name: "rebase-verify" })
+      .onRequest("session/request_permission", async ({ params }) => {
+        const reject = params.options?.find((o) => /^reject/.test(o.kind ?? ""));
+        emit({ kind: "permission-refused", toolCall: params.toolCall });
+        return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
+      })
+      .onNotification("session/update", ({ params }) => {
+        const u = params.update;
+        emit({ ...u, kind: u.sessionUpdate });
+        if (turn && u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text") turn.text += u.content.text;
+        // a tool_call, or an update for a tool call we never saw, is a tool in use
+        if (u.sessionUpdate === "tool_call") {
+          seenTools.add(u.toolCallId);
+          trip(u.title || u.kind || "tool");
+        } else if (u.sessionUpdate === "tool_call_update" && !seenTools.has(u.toolCallId)) {
+          seenTools.add(u.toolCallId);
+          trip(u.title || u.kind || "tool");
+        }
+      });
+    conn = app.connect(stream);
+    const call = async (method, params) => {
+      try {
+        return await Promise.race([conn.agent.request(method, params), dead]);
+      } catch (e) {
+        if (closed || e instanceof AgentStartError || typeof e?.code === "number") throw e;
+        // the connection dropped: if the child died, say so with its stderr
+        if (!exited) await Promise.race([exitPromise, new Promise((r) => setTimeout(r, 2000).unref())]);
+        if (exited) throw startErr();
+        throw e;
+      }
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     emit({ kind: "started", pid: child.pid, cwd });
     await call("initialize", { protocolVersion: 1, clientInfo: { name: "rebase-verify", version: "0" }, clientCapabilities: {} });
     const meta = { ...(spec.sessionMeta ?? {}) };
@@ -203,9 +261,9 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
     }
     sessionId = created.sessionId;
 
-    let configOptions = created.configOptions;
-    let modelEntry = configEntry(configOptions, "model");
-    let models = flattenOptions(modelEntry?.options).map((o) => ({ id: o.value, name: o.name ?? o.value }));
+    const configOptions = created.configOptions;
+    const modelEntry = configEntry(configOptions, "model");
+    const models = flattenOptions(modelEntry?.options).map((o) => ({ id: o.value, name: o.name ?? o.value }));
     const session = {
       models,
       currentModel: modelEntry?.currentValue ?? null,
@@ -216,24 +274,34 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
         emit({ kind: "model-set", model: id });
       },
       async prompt(text, { system } = {}) {
-        const body = spec.systemPromptVia === "inline" && system ? `${system}\n\n${text}` : text;
-        turn = { text: "", tripped: null };
-        const t = turn;
+        if (pendingTrip) throw new ToolUseError(pendingTrip);
+        const fixed = spec.systemPromptVia === "meta" || spec.systemPromptVia === "param";
+        if (fixed && system !== undefined && system !== spec.system)
+          throw new Error("the system prompt is fixed when the agent starts; pass it in the spec, not to prompt()");
+        const body = !fixed && system ? `${system}\n\n${text}` : text;
+        const t = { text: "", tripped: null, timer: null, expire: null };
+        const deadline = new Promise((_, rej) => (t.expire = () => rej(new Error("trip-deadline"))));
+        deadline.catch(() => {});
+        turn = t;
         emit({ kind: "turn-start" });
         try {
-          const res = await call("session/prompt", { sessionId, prompt: [{ type: "text", text: body }] });
+          const res = await Promise.race([call("session/prompt", { sessionId, prompt: [{ type: "text", text: body }] }), deadline]);
           emit({ kind: "turn-end", stopReason: res.stopReason });
           if (t.tripped) throw new ToolUseError(t.tripped);
           return { text: t.text, usage: res.usage ?? null, stopReason: res.stopReason };
         } catch (e) {
           if (e instanceof ToolUseError) throw e;
-          if (t.tripped) throw new ToolUseError(t.tripped);
+          if (t.tripped) {
+            await close();
+            throw new ToolUseError(t.tripped);
+          }
           if (signal?.aborted) {
             await closeDone;
             throw abortError();
           }
           throw isAuthError(e) ? new AgentAuthError(e.message) : e;
         } finally {
+          clearTimeout(t.timer);
           turn = null;
         }
       },

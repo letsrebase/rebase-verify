@@ -6,11 +6,21 @@
 //   FAKE_TOOL     emit a tool_call during the prompt, then wait for cancel
 //   FAKE_PERM     ask permission once and put the chosen outcome into the answer
 //   FAKE_AUTH     "new" | "prompt" | "details": fail with an auth error there
+//   FAKE_TOOL=update  emit a tool_call_update for an unseen id instead; =nocancel ignores cancel forever
+//   FAKE_LATE_TOOL  after the turn ends, emit a tool_call
+//   FAKE_EXIT     "init" | "prompt": print to stderr and exit during that call
+//   FAKE_GRANDCHILD  path: spawn a sleeper grandchild and write its pid there
 //   FAKE_HANG     wait for session/cancel, then stop with "cancelled"
 import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
+import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
 
 const env = process.env;
+if (env.FAKE_GRANDCHILD) {
+  const g = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], { stdio: "ignore" });
+  writeFileSync(env.FAKE_GRANDCHILD, String(g.pid));
+}
 const list = (v) => (v ? v.split(",") : []);
 const state = { model: null, mode: null, params: null, cancel: null };
 const models = list(env.FAKE_MODELS);
@@ -29,14 +39,21 @@ function configOptions() {
 
 const waitCancel = (signalBox) => new Promise((resolve) => (signalBox.resolve = resolve));
 
+const INIT = {
+  protocolVersion: 1,
+  agentCapabilities: {},
+  authMethods: [],
+  agentInfo: { name: "fake", version: "0" },
+  _meta: { account: "secret@example.com" },
+};
 const app = acp.agent({ name: "fake-acp-agent" })
-  .onRequest("initialize", async () => ({
-    protocolVersion: 1,
-    agentCapabilities: {},
-    authMethods: [],
-    agentInfo: { name: "fake", version: "0" },
-    _meta: { account: "secret@example.com" },
-  }))
+  .onRequest("initialize", async () => {
+    if (env.FAKE_EXIT === "init") {
+      process.stderr.write("boom: fake agent died\n");
+      process.exit(3);
+    }
+    return INIT;
+  })
   .onRequest("authenticate", async () => ({}))
   .onRequest("session/new", async ({ params }) => {
     state.params = params;
@@ -59,12 +76,19 @@ const app = acp.agent({ name: "fake-acp-agent" })
       throw new acp.RequestError(-32603, "Internal error", { details: "No model selected. Use /login" });
     const update = (u) => client.notify("session/update", { sessionId: "s1", update: u });
     const promptText = params.prompt.map((b) => b.text ?? "").join("");
+    if (env.FAKE_EXIT === "prompt") {
+      process.stderr.write("boom: died mid-turn\n");
+      process.exit(4);
+    }
     if (env.FAKE_TOOL || env.FAKE_HANG) {
       state.cancel = {};
       const cancelled = waitCancel(state.cancel);
-      if (env.FAKE_TOOL)
+      if (env.FAKE_TOOL === "update")
+        await update({ sessionUpdate: "tool_call_update", toolCallId: "ghost", title: "Ghost", status: "in_progress" });
+      else if (env.FAKE_TOOL)
         await update({ sessionUpdate: "tool_call", toolCallId: "t1", title: "Run ls", kind: "execute", status: "pending" });
       else await update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "partial" } });
+      if (env.FAKE_TOOL === "nocancel") await new Promise(() => {});
       await cancelled;
       return { stopReason: "cancelled" };
     }
@@ -92,6 +116,8 @@ const app = acp.agent({ name: "fake-acp-agent" })
     const n = Math.max(1, Math.ceil(answer.length / 3));
     for (let i = 0; i < answer.length; i += n)
       await update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: answer.slice(i, i + n) } });
+    if (env.FAKE_LATE_TOOL)
+      setTimeout(() => update({ sessionUpdate: "tool_call", toolCallId: "late", title: "Late tool", kind: "execute", status: "pending" }), 20);
     return { stopReason: "end_turn", usage: { inputTokens: 3, outputTokens: 4, totalTokens: 7 } };
   });
 

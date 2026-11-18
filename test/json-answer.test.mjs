@@ -16,3 +16,6 @@ test("no JSON throws NoJsonError", () => {
   assert.throws(() => firstJsonObject("[1,2]"), NoJsonError);
   assert.throws(() => firstJsonObject(undefined), NoJsonError);
 });
+test("a broken outer object never yields an inner one", () => {
+  assert.throws(() => firstJsonObject('{"a": {"b": 1}, oops}'), NoJsonError);
+});

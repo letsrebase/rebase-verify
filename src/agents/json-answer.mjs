@@ -32,8 +32,10 @@ export function firstJsonObject(text) {
       const value = JSON.parse(text.slice(start, end + 1));
       if (value && typeof value === "object" && !Array.isArray(value)) return value;
     } catch {
-      // not JSON (prose braces): try the next opening brace
+      // A balanced span that is not JSON (prose braces): skip the WHOLE span,
+      // so a broken outer object never yields one of its inner objects.
     }
+    start = end;
   }
   throw new NoJsonError();
 }
