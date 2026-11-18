@@ -38,6 +38,7 @@ The tool reads every supported agent CLI it finds on your machine and folds them
 | [![Codex CLI](https://img.shields.io/badge/Codex_CLI-555)](https://github.com/openai/codex) | `~/.codex/sessions` | `--no-codex` | structural |
 | [![pi](https://img.shields.io/badge/pi-555?logo=pi&logoColor=white)](https://pi.dev) | `~/.pi/agent/sessions` | `--no-pi` | structural |
 | [![cursor-agent](https://img.shields.io/badge/cursor--agent-555?logo=cursor&logoColor=white)](https://cursor.com/cli) | `~/.cursor/chats` (sqlite; needs Node 22.5+, otherwise read as empty and disclosed) | `--no-cursor` | structural |
+| ![omp](https://img.shields.io/badge/oh--my--pi-555) | `~/.omp/agent/sessions` | `--no-omp` | structural |
 | ![kimi-code](https://img.shields.io/badge/kimi--code-555?logo=moonshotai&logoColor=white) | `~/.kimi-code/sessions` | `--no-kimi` | structural |
 
 Every source normalizes into the same session model, so all seven lenses below read them identically. Each `--<source>-root <dir>` flag overrides the default location. What never gets opened per source (credential files, config, telemetry) is enumerated in [PRIVACY.md](PRIVACY.md). Gemini CLI and ChatGPT / Claude.ai exports are on the roadmap.

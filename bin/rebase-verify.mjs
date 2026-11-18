@@ -95,13 +95,14 @@ const has = (n) => argv.includes(`--${n}`);
 // The `sources` shape readAllSources() expects, read from CLI flags. Called
 // from TWO places (loadProfileInputs and the submit command) that must never
 // drift: submit re-derives ground truth from the SAME source mix the profile
-// was generated from, otherwise a merged profile (claude-code + opencode + codex + pi + cursor + kimi)
+// was generated from, otherwise a merged profile (claude-code + opencode + codex + pi + omp + cursor + kimi)
 // trips the tamper signal because volume.sessions > re-derived sessions.
 function sourceFlags() {
   return {
     opencode: { root: flag("opencode-root"), disabled: has("no-opencode"), json: has("opencode-json") },
     codex: { root: flag("codex-root"), disabled: has("no-codex") },
     pi: { root: flag("pi-root"), disabled: has("no-pi") },
+    omp: { root: flag("omp-root"), disabled: has("no-omp") },
     cursor: { root: flag("cursor-root"), disabled: has("no-cursor") },
     kimi: { root: flag("kimi-root"), disabled: has("no-kimi") },
   };
@@ -150,6 +151,8 @@ async function loadProfileInputs(out) {
   if (cx.length) console.log(`      codex:       ${cx.length} sessions`);
   const pi = parsed.sessions.filter(s => s.source === "pi");
   if (pi.length) console.log(`      pi:          ${pi.length} sessions`);
+  const om = parsed.sessions.filter(s => s.source === "omp");
+  if (om.length) console.log(`      omp:         ${om.length} sessions`);
   const cu = parsed.sessions.filter(s => s.source === "cursor");
   if (cu.length) console.log(`      cursor:      ${cu.length} sessions`);
   const ki = parsed.sessions.filter(s => s.source === "kimi");

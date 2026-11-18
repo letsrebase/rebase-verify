@@ -7,6 +7,7 @@
 //   - opencode:    ~/.local/share/opencode/{storage,opencode.db}, opt-out
 //   - codex:       ~/.codex/sessions, opt-out
 //   - pi:          ~/.pi/agent/sessions, opt-out
+//   - omp:         ~/.omp/agent/sessions, opt-out (oh-my-pi, pi's format)
 //   - cursor:      ~/.cursor/chats, opt-out (readCursor returns an EMPTY
 //                  bundle with stats.backend: null on Node < 22.5 — no
 //                  node:sqlite — so it just contributes zero sessions there)
@@ -21,11 +22,19 @@ import { readClaudeCode } from "./adapters/claude-code.mjs";
 import { readOpencode, readOpencodeJson, defaultOpencodeRoot, mergeSources } from "./adapters/opencode.mjs";
 import { readCodex, defaultCodexRoot } from "./adapters/codex.mjs";
 import { readPi, defaultPiRoot } from "./adapters/pi.mjs";
+import { readOmp, defaultOmpRoot, isAgentRun } from "./adapters/omp.mjs";
 import { readCursor, defaultCursorRoot } from "./adapters/cursor.mjs";
 import { readKimi, defaultKimiRoot } from "./adapters/kimi.mjs";
 
 export function readAllSources({ claudeRoot, sources }) {
-  const bundles = [readClaudeCode(claudeRoot)];
+  const bundles = [];
+  // rebase-verify's own agent runs leave transcripts in the agents' session
+  // stores; they are dropped here, once, for every source.
+  const add = (b) => {
+    const sessions = b.sessions.filter((s) => !isAgentRun(s.cwdRaw));
+    return { ...b, sessions };
+  };
+  bundles.push(add(readClaudeCode(claudeRoot)));
 
   const oc = sources?.opencode ?? {};
   if (!oc.disabled) {
@@ -34,35 +43,47 @@ export function readAllSources({ claudeRoot, sources }) {
     // defaultOpencodeRoot() when oc.root is null OR undefined.
     const root = oc.root ?? defaultOpencodeRoot();
     const parsed = oc.json ? readOpencodeJson(root) : readOpencode(root);
-    if (parsed.sessions.length) bundles.push(parsed);
+    const kept = add(parsed);
+    if (kept.sessions.length) bundles.push(kept);
   }
 
   const cx = sources?.codex ?? {};
   if (!cx.disabled) {
     const root = cx.root ?? defaultCodexRoot();
     const parsed = readCodex(root);
-    if (parsed.sessions.length) bundles.push(parsed);
+    const kept = add(parsed);
+    if (kept.sessions.length) bundles.push(kept);
   }
 
   const pi = sources?.pi ?? {};
   if (!pi.disabled) {
     const root = pi.root ?? defaultPiRoot();
     const parsed = readPi(root);
-    if (parsed.sessions.length) bundles.push(parsed);
+    const kept = add(parsed);
+    if (kept.sessions.length) bundles.push(kept);
+  }
+
+  const omp = sources?.omp ?? {};
+  if (!omp.disabled) {
+    const root = omp.root ?? defaultOmpRoot();
+    const kept = add(readOmp(root));
+    if (kept.sessions.length) bundles.push(kept);
   }
 
   const cu = sources?.cursor ?? {};
   if (!cu.disabled) {
     const root = cu.root ?? defaultCursorRoot();
     const parsed = readCursor(root);
-    if (parsed.sessions.length) bundles.push(parsed);
+    const kept = add(parsed);
+    if (kept.sessions.length) bundles.push(kept);
   }
 
   const k = sources?.kimi ?? {};
   if (!k.disabled) {
     const root = k.root ?? defaultKimiRoot();
     const parsed = readKimi(root);
-    if (parsed.sessions.length) bundles.push(parsed);
+    const kept = add(parsed);
+    if (kept.sessions.length) bundles.push(kept);
   }
 
   return bundles.length > 1 ? mergeSources(...bundles) : bundles[0];

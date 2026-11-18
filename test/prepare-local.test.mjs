@@ -30,7 +30,7 @@ test("prepare writes narrative-input.json without calling the API when a key is 
 
     const r = spawnSync(
       process.execPath,
-      [BIN, "prepare", "--root", root, "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"],
+      [BIN, "prepare", "--root", root, "--no-opencode", "--no-codex", "--no-pi", "--no-omp", "--no-cursor", "--no-kimi"],
       {
         cwd: work,
         encoding: "utf8",
