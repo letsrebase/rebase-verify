@@ -40,12 +40,12 @@ The name-stripping described in section 2 (no repository names, no client names 
 
 To let a person at rebase **review your work profile and, if they approve it, verify it**. Concretely:
 - A person at rebase reads the profile, which waits as a draft until then, and approves or declines it.
-- Once approved, the profile earns «Verificato da rebase» (which the talent cloud lists first), and companies in the talent cloud can see the profile's own summary, its domains and the abstract domains of its projects. Your own model wrote those texts and you reviewed them before sending; rebase does not rewrite them. The profile's text is also used to write your anonymous card: it is sent to the AI provider that [rebase's privacy notice](https://letsrebase.com/privacy) names as processor, under the terms described there.
+- Once approved, the profile earns «Verificato da rebase» (which the talent cloud lists first), and companies rebase works with can see the profile's own summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project. Your own model wrote those texts and you reviewed them before sending; rebase does not rewrite them. The profile's text is also used to write your anonymous card: it is sent to the AI provider that [rebase's privacy notice](https://letsrebase.com/privacy) names as processor, under the terms described there.
 - Nothing is shown to anyone outside rebase before that approval.
 
 We **do not**:
 - Train AI models on your data.
-- Share your profile itself with anyone outside rebase; companies only see the summary, domains and abstract project domains of an approved profile.
+- Share your profile itself with anyone outside rebase; the companies rebase works with only see the summary, domains of work and representative project sectors of an approved profile, next to your name and your card.
 - Use your data to make automated decisions about you.
 
 ## 4. Legal basis
@@ -73,7 +73,7 @@ You have the right to:
 Under EU Regulation 2024/1689 (the AI Act), Annex III §4(a), AI systems used to "analyse and filter job applications and evaluate candidates" are classified as **high-risk**. The work profile is treated as such. The obligations we take on:
 
 - **Transparency.** This file and the [README](README.md) describe in plain terms what the tool measures, how the tags are derived, and what the model is asked to do, including the agentic-literacy counts (built-in vs custom, with custom names never exposed), the AI-relationship axis, the trajectory shifts, the per-product orchestration counts (per-CLI session split, agent-dispatch and delegation counts), the technology-usage counts and bands, and the practice-intensity signals. The source code is public on GitHub.
-- **Human oversight.** No automated decision is made about you. A person at rebase reads each profile and decides whether to approve it; approval is what verifies it (a «Verificato da rebase» badge, which the talent cloud lists first, and visibility of its summary and domains to companies in the talent cloud), and nothing counts before it. The AI generates the profile and computes screening metrics; it does not decide anything about you. AI may score the *artifact*, never you: the authenticity and groundedness scores measure whether your logs are internally consistent and whether the prose tracks the data. A refusal is a person's call, not a score's.
+- **Human oversight.** No automated decision is made about you. A person at rebase reads each profile and decides whether to approve it; approval is what verifies it (a «Verificato da rebase» badge, which the talent cloud lists first, and visibility of its summary, domains of work and representative project sectors, next to your name and your card, to companies rebase works with), and nothing counts before it. The AI generates the profile and computes screening metrics; it does not decide anything about you. AI may score the *artifact*, never you: the authenticity and groundedness scores measure whether your logs are internally consistent and whether the prose tracks the data. A refusal is a person's call, not a score's.
 - **Disclosure.** You are interacting with an AI tool. The narrative parts of your profile (summary, cognitive narrative, trajectory narrative, per-project descriptions) are model-generated.
 - **Data governance.** Raw logs stay on your machine. Only a redacted, consented subset is transmitted, with declared retention. Storage is in the EU. Once a profile is approved, its text is sent to write the anonymous card to the AI provider that [rebase's privacy notice](https://letsrebase.com/privacy) names as processor, and that notice also says where that processing happens and under which safeguards.
 - **Logging.** We keep server-side logs of API requests (timestamps, status codes) for security and debugging, separate from the application data.
@@ -84,7 +84,7 @@ Under EU Regulation 2024/1689 (the AI Act), Annex III §4(a), AI systems used to
 - Transmission over HTTPS.
 - Storage on rebase's servers in the European Union.
 - The sign-in token the CLI receives can send one profile and nothing else, expires after 15 minutes and is spent by the first profile it sends. The CLI keeps it in memory only and never writes it to disk.
-- The full profile is readable only by the people at rebase who review it; companies see only what section 3 lists, once it is approved.
+- The full profile is readable by the people at rebase who review it, directly or through their admin tools; the companies rebase works with see only what section 3 lists, once it is approved.
 
 ## 9. A fully manual alternative
 

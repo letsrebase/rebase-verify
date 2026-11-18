@@ -291,7 +291,7 @@ async function cmdSubmit() {
   console.log(`  artifact links: ${links}`);
   console.log(`\nYou sign in in the browser first, so rebase knows it is you; no name, email or city is sent with the profile.`);
   console.log(`A person at rebase reads it before it counts. If they approve it, your profile gets «Verificato da rebase»,`);
-  console.log(`companies in the talent cloud can see its summary and domains (written by your model, reviewed by you), and its text is used to write your anonymous card.`);
+  console.log(`companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card (written by your model, reviewed by you), for example in the talent cloud or when rebase proposes you for a project, and its text is used to write your anonymous card.`);
   console.log(`It is kept at most 12 months, and you can delete it from your member area.`);
   console.log(`Controller: Rebase S.r.l. (VAT IT 14971460960). Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
