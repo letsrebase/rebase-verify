@@ -4,7 +4,7 @@
 // been": a session whose log lacks a field a practice needs (see `needs` in
 // practices-rules.mjs), or whose adapter cannot show it (ADAPTERS_WITHOUT), is
 // left out of that denominator, never counted as "not seen".
-import { DEFAULT_TZ, isValidTimezone, monthKeyFor } from "./days.mjs";
+import { DEFAULT_TZ, monthKeyFor } from "./days.mjs";
 import { isEphemeral, repoKey, splitTopLevel, stripHeredocs } from "./digest.mjs";
 import {
   ADAPTERS_WITHOUT, CODE_PRACTICES, EDIT_TOOLS as EDIT_TOOL_NAMES, PLAN_TOOLS as PLAN_TOOL_NAMES, RUBRIC,
@@ -38,6 +38,19 @@ export function normalizeCommand(cmd) {
 
 // The ordered "atoms" of a session: one per edit, planning tool, or sub-command
 // of a shell command (so `npm test && git commit` keeps its internal order).
+// An edit path relative to the session's working directory, so a folder above
+// the project (test, specs, plans) does not decide the classification. A path
+// outside the directory, or already relative, stays as it is.
+function relativeTo(path, session) {
+  const norm = (x) => String(x ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const p = path.replace(/\\/g, "/");
+  for (const root of [session?.cwdRedacted, session?.cwdRaw]) {
+    const r = norm(root);
+    if (r && p.toLowerCase().startsWith(`${r.toLowerCase()}/`)) return p.slice(r.length + 1);
+  }
+  return path;
+}
+
 function readSession(session) {
   const messages = Array.isArray(session?.messages) ? session.messages : [];
   const results = new Map();
@@ -59,7 +72,7 @@ function readSession(session) {
     if (EDIT_TOOLS.has(u.name)) {
       // An empty path (codex apply_patch it could not parse) names no file.
       if (typeof u.path !== "string" || u.path === "") pathOk = false;
-      atoms.push({ e, edit: true, path: typeof u.path === "string" ? u.path : "" });
+      atoms.push({ e, edit: true, path: typeof u.path === "string" ? relativeTo(u.path, session) : "" });
     } else if (PLAN_TOOLS.has(u.name)) {
       atoms.push({ e, plan: true });
     } else if (u.name === "Bash") {
@@ -102,7 +115,7 @@ function reviewedBeforeDelivery(atoms) {
   return false;
 }
 
-// A command failed, files were edited, and the same command then succeeded.
+// A check command failed, files were edited, and the same check then succeeded.
 function failureReproduced(bash, atoms, results) {
   const editEvents = atoms.filter((a) => a.edit).map((a) => a.e);
   for (const f of bash) {
@@ -177,6 +190,7 @@ export function practiceSessions(parsed, { tz = DEFAULT_TZ } = {}) {
 export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
   const acc = new Map(CODE_PRACTICES.map((p) => [p.id, { seen: 0, of: 0, products: new Set(), months: new Set() }]));
   for (const { session, meta } of eachSession(parsed, tz)) {
+    if (!meta.month) continue; // no time: cannot be placed in a month
     const facts = sessionFacts(session);
     for (const [id, a] of acc) {
       if (!facts.denom[id]) continue;
@@ -184,7 +198,7 @@ export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
       if (!facts.seen[id]) continue;
       a.seen++;
       a.products.add(meta.product);
-      if (meta.month) a.months.add(meta.month);
+      a.months.add(meta.month);
     }
   }
   const items = CODE_PRACTICES.filter((p) => acc.get(p.id).of > 0).map((p) => {
@@ -199,11 +213,4 @@ export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
 export function practicesBlock(items, { tz = DEFAULT_TZ } = {}) {
   if (!Array.isArray(items) || !items.length) return null;
   return { rubric: RUBRIC, timezone: tz, items };
-}
-
-// The zone the submit-time re-derivation must bucket months in: the one the
-// profile recorded, never the machine's (as recordedTechUsageTz).
-export function recordedPracticesTz(profile) {
-  const tz = profile?.practices?.timezone;
-  return isValidTimezone(tz) ? tz : DEFAULT_TZ;
 }

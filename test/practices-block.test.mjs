@@ -37,7 +37,7 @@ const cases = {
   "products > seen": () => withBlock(block([item({ seen: 2, products: 3, months: 1 })])),
   "months > seen": () => withBlock(block([item({ seen: 2, products: 1, months: 3 })])),
   "months 0 with seen 1": () => withBlock(block([item({ seen: 1, of: 1, products: 1, months: 0 })])),
-  "months > window": () => withBlock(block([item({ seen: 9, products: 1, months: 6 })])),
+  "months > window": () => withBlock(block([item({ seen: 9, products: 1, months: 7 })])),
   "seen a bool": () => withBlock(block([item({ seen: true })])),
   "seen 1.5": () => withBlock(block([item({ seen: 1.5 })])),
   "items not a list": () => withBlock(block("checks")),
@@ -69,4 +69,16 @@ test("renderMarkdown prints counts with the method per row, no total, no percent
   const section = md.split("## How the work is done")[1].split("\n## ")[0];
   assert.ok(!/%|total/i.test(section), section);
   assert.ok(!renderMarkdown(baseProfile()).includes("How the work is done"));
+});
+
+test("months counted in the profile zone may exceed the UTC window span by one, not by two", () => {
+  const p = (months) => ({
+    ...withBlock(block([item({ seen: 5, of: 5, products: 1, months })], { timezone: "Europe/Rome" })),
+    window: { from: "2026-01", to: "2026-01" },
+    intensity: { timezone: "Europe/Rome" },
+  });
+  // Rome 2026-01-01T00:30Z is 01:30 on 1 Jan; 2026-01-31T23:30Z is 00:30 on 1 Feb:
+  // sessions at both ends sit in a one-month UTC window but fall in 2 Rome months.
+  assert.deepEqual(issuesOf(p(2)), []);
+  assert.equal(issuesOf(p(3)).length, 1);
 });

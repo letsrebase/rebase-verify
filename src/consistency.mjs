@@ -166,7 +166,9 @@ export function assessStructure(profile) {
       if (x.products > x.seen) issues.push(`${w}: ${x.products} products but seen in only ${x.seen} sessions`);
       if (x.months > x.seen) issues.push(`${w}: ${x.months} months but seen in only ${x.seen} sessions`);
       if (x.seen >= 1 && x.months < 1) issues.push(`${w}: seen in ${x.seen} sessions but months is 0`);
-      if (windowMonths != null && x.months > windowMonths) issues.push(`${w}: ${x.months} months but the profile window spans ${windowMonths}`);
+      // months are counted in the profile zone, the window in UTC: an offset of at
+      // most 14 hours shifts a month key by at most one.
+      if (windowMonths != null && x.months > windowMonths + 1) issues.push(`${w}: ${x.months} months but the profile window spans ${windowMonths}`);
     }
   }
 

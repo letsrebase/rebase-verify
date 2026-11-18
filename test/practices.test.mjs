@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildDigest } from "../src/digest.mjs";
-import { normalizeCommand, sessionFacts, computeCodePractices, practiceSessions, recordedPracticesTz } from "../src/practices.mjs";
+import { normalizeCommand, sessionFacts, computeCodePractices, practiceSessions } from "../src/practices.mjs";
 
 // Events are { tool, path, cmd, err }; each becomes one assistant tool use,
 // followed by a user message carrying its result (isError = err === true).
@@ -192,12 +192,12 @@ test("computeCodePractices counts seen, of, products and months in the tz and om
   assert.equal(computeCodePractices({ sessions: [] }), null);
 });
 
-test("months use the first timestamped message and sessions without one add no month", () => {
+test("months use the first timestamped message and sessions without one are left out", () => {
   const s = session("claude-code", [edit("src/a.ts"), bash("npm audit")], { cwd: "/Users/⟨user⟩/dev/alpha", ts: "2026-02-10T10:00:00.000Z" });
   const none = session("claude-code", [edit("src/a.ts"), bash("npm audit")], { cwd: "/Users/⟨user⟩/dev/alpha", id: "n" });
   for (const m of none.messages) delete m.ts;
   const item = computeCodePractices({ sessions: [s, none] }).items.find((i) => i.id === "security_checks");
-  assert.deepEqual(item, { id: "security_checks", method: "code", seen: 2, of: 2, products: 1, months: 1 });
+  assert.deepEqual(item, { id: "security_checks", method: "code", seen: 1, of: 1, products: 1, months: 1 });
   assert.deepEqual(practiceSessions({ sessions: [s, none] }, { tz: "UTC" }).map((p) => [p.id, p.product, p.month, p.source]), [["s", "alpha", "2026-02", "claude-code"], ["n", "alpha", null, "claude-code"]]);
 });
 
@@ -235,9 +235,25 @@ test("ephemeral sandboxes are not counted: the practice sessions are exactly the
   assert.deepEqual(byProduct(Object.entries(counted)), byProduct(digest.projects.map((p) => [p.repo, p.sessions])));
 });
 
-test("recordedPracticesTz reads the profile's recorded zone, falling back to UTC", () => {
-  assert.equal(recordedPracticesTz({ practices: { timezone: "Europe/Rome" } }), "Europe/Rome");
-  assert.equal(recordedPracticesTz({ practices: { timezone: "Not/AZone" } }), "UTC");
-  assert.equal(recordedPracticesTz({}), "UTC");
-  assert.equal(recordedPracticesTz(null), "UTC");
+
+test("an ancestor folder named specs, test or plans does not change the classification", () => {
+  for (const dir of ["specs", "test", "plans"]) {
+    const cwd = `/h/${dir}/proj`;
+    const f = sessionFacts(session("claude-code", [edit(`${cwd}/src/a.js`), edit(`${cwd}/test/a.test.js`)], { cwd }));
+    assert.equal(f.sourceEdits, 1, dir);
+    assert.equal(f.testEdits, 1, dir);
+    assert.equal(f.seen.design_documents, false, dir);
+    assert.equal(f.seen.plan_before_edit, false, dir);
+  }
+});
+
+test("a path outside the working directory classifies by its own segments", () => {
+  const f = sessionFacts(session("claude-code", [edit("/elsewhere/specs/x.md")], { cwd: "/h/p/x" }));
+  assert.equal(f.seen.design_documents, true);
+});
+
+test("a session with no timestamped message is left out of every count", () => {
+  const s = session("claude-code", [edit("src/a.js"), edit("test/a.test.js")], { ts: undefined });
+  s.messages.forEach((m) => delete m.ts);
+  assert.equal(computeCodePractices({ sessions: [s] }), null);
 });
