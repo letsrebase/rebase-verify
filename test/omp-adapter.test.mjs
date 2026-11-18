@@ -12,6 +12,8 @@ import { tmpdir } from "node:os";
 import { readOmp, defaultOmpRoot, isAgentRun, AGENT_RUN_MARKER } from "../src/adapters/omp.mjs";
 import { readPi } from "../src/adapters/pi.mjs";
 import { readAllSources } from "../src/sources.mjs";
+import { computeFingerprint } from "../src/fingerprint.mjs";
+import { computeForensics } from "../src/forensics.mjs";
 
 const lines = (cwd, id, tools = []) => [
   { type: "session", version: 3, id, timestamp: "2026-11-01T10:00:00.000Z", cwd },
@@ -46,14 +48,14 @@ test("isAgentRun matches the raw cwd marker only", () => {
 test("readOmp: source omp, canonical tool names", () => {
   const root = mkdtempSync(join(tmpdir(), "omp-"));
   try {
-    const tools = ["bash", "read", "edit", "write", "grep", "find", "glob", "task", "todo", "ast_edit", "web_search", "eval", "browser", "mcp__linear_rebase_list_issues"];
+    const tools = ["bash", "read", "edit", "write", "grep", "find", "glob", "task", "todo", "ast_edit", "web_search", "eval", "browser", "browser_snapshot", "translate_catalog", "xd_mcp__linear_personal_get_issue", " read", "mcp__linear_rebase_list_issues"];
     put(root, `--home-me-proj--/${SID}.jsonl`, lines("/home/me/proj", UUID, tools));
     const b = readOmp(root);
     assert.equal(b.source, "omp");
     assert.equal(b.sessions.length, 1);
     assert.equal(b.sessions[0].source, "omp");
     const names = b.sessions[0].messages.flatMap((m) => m.toolUses.map((u) => u.name));
-    assert.deepEqual(names, ["Bash", "Read", "Edit", "Write", "Grep", "Glob", "Glob", "Task", "TodoWrite", "Edit", "WebSearch", "eval", "browser", "mcp__linear_rebase_list_issues"]);
+    assert.deepEqual(names, ["Bash", "Read", "Edit", "Write", "Grep", "Glob", "Glob", "Task", "TodoWrite", "Edit", "WebSearch", "eval", "browser", "browser_snapshot", "translate_catalog", "mcp__linear_personal_get_issue", "Read", "mcp__linear_rebase_list_issues"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -146,5 +148,40 @@ test("readAllSources drops claude-code, codex, pi and omp sessions from agent ru
     }
   } finally {
     for (const r of roots) rmSync(r, { recursive: true, force: true });
+  }
+});
+
+test("readOmp: a header-less transcript in an agent-run directory is recognised", () => {
+  const root = mkdtempSync(join(tmpdir(), "omp-"));
+  try {
+    const body = lines("/x", UUID).split("\n").slice(1).join("\n"); // no session header
+    put(root, `--var-x-${AGENT_RUN_MARKER}q1w2e3--/${SID}.jsonl`, body);
+    const b = readOmp(root);
+    assert.equal(b.sessions.length, 1);
+    assert.equal(isAgentRun(b.sessions[0].cwdRaw), true);
+    const got = readAllSources({ claudeRoot: mkdtempSync(join(tmpdir(), "cc-empty-")), sources: { ...NONE, omp: { root } } });
+    assert.equal(got.sessions.length, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("readAllSources drops the files of agent runs: no malformed count, no manifest entry", () => {
+  const root = mkdtempSync(join(tmpdir(), "omp-"));
+  const empty = mkdtempSync(join(tmpdir(), "cc-empty-"));
+  try {
+    put(root, `--home-me-proj--/${SID}.jsonl`, lines("/home/me/proj", UUID));
+    // A run killed by Ctrl-C: header names the run cwd, last line truncated.
+    put(root, `--x--/2026-11-02T10-00-00-000Z_019a0000-0000-7000-8000-000000000002.jsonl`, lines(RUN_CWD, "run1") + '{"type":"mess');
+    const got = readAllSources({ claudeRoot: empty, sources: { ...NONE, omp: { root } } });
+    assert.equal(got.sessions.length, 1);
+    assert.equal(got.files.length, 1);
+    assert.equal(got.files.reduce((n, f) => n + f.malformed, 0), 0);
+    assert.equal(computeForensics(got).checks.find((c) => c.id === "malformed_lines").status, "pass");
+    assert.deepEqual(computeFingerprint(got).manifest.files.map((f) => f.file), got.files.map((f) => f.relPath));
+    assert.equal(got.files.some((f) => f.relPath.includes("--x--")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
   }
 });

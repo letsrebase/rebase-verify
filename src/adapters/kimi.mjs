@@ -500,7 +500,7 @@ export function readKimi(root) {
           session.cwdRedacted = toPosix(redactText(state.workDir));
           session.projectLabel = `project-${shortHash(state.workDir)}`;
         }
-        files.push({ relPath: relative(root, stateJsonPath), sha256: sha256(buf), bytes: buf.length, lines: 1, malformed });
+        files.push({ relPath: relative(root, stateJsonPath), sha256: sha256(buf), bytes: buf.length, lines: 1, malformed, cwdRaw: session.cwdRaw });
       }
 
       const agentsDir = join(sessionDir, "agents");
@@ -550,7 +550,7 @@ export function readKimi(root) {
         redactionHits += rh;
         redactedChars += rc;
 
-        files.push({ relPath, sha256: sha256(buf), bytes: statSync(wirePath).size, lines: rawLines.length, malformed });
+        files.push({ relPath, sha256: sha256(buf), bytes: statSync(wirePath).size, lines: rawLines.length, malformed, cwdRaw: session.cwdRaw });
       }
 
       if (sessionIsLive) liveSessionsSeenTotal++;

@@ -55,6 +55,7 @@ import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { redactText, countRedactions } from "../redact.mjs";
 import { toPosix, walk } from "./claude-code.mjs";
+import { AGENT_RUN_MARKER } from "../agent-run.mjs";
 import { fallbackToolName } from "./tool-vocab.mjs";
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -95,7 +96,7 @@ const TOOL_MAP = {
   webfetch: "WebFetch",
   websearch: "WebSearch",
 };
-export function mapToolWith(map) {
+function mapToolWith(map) {
   return (name) => {
     if (!name) return name;
     if (map[name]) return map[name];
@@ -392,10 +393,12 @@ export function readPiFormat(root, { source = "pi", mapTool = piMapTool, include
     // present, even if the directory encodes a different path.
     if (!session.cwdRaw) {
       const decoded = decodeDirCwd(dirName);
-      if (decoded) setCwd(decoded);
+      // decodeDirCwd turns the marker's dashes into slashes, so a header-less
+      // transcript of one of our own runs keeps its encoded dir name instead.
+      if (decoded) setCwd(dirName.includes(AGENT_RUN_MARKER) ? dirName : decoded);
     }
 
-    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed });
+    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed, cwdRaw: session.cwdRaw });
     sessions.push({ ...session, cliVersions: [...session.cliVersions], models: [...session.models] });
   }
 

@@ -14,25 +14,20 @@
 
 import { join, sep } from "node:path";
 import { homedir } from "node:os";
-import { readPiFormat, mapToolWith } from "./pi.mjs";
+import { readPiFormat } from "./pi.mjs";
+import { AGENT_RUN_MARKER, isAgentRun } from "../agent-run.mjs";
 
-export const AGENT_RUN_MARKER = "rebase-verify-agent-run-";
-
-// A session recorded from one of rebase-verify's own agent runs (narrative or
-// classification turns) is never the person's work. Matches the RAW cwd, not
-// the redacted one. Separate from digest.isEphemeral: os.tmpdir() is not under
-// /tmp on every machine.
-export function isAgentRun(cwd) {
-  return typeof cwd === "string" && cwd.includes(AGENT_RUN_MARKER);
-}
+export { AGENT_RUN_MARKER, isAgentRun };
 
 export function defaultOmpRoot() {
   return join(homedir(), ".omp", "agent", "sessions");
 }
 
 // Tool names observed in real omp sessions (counts by name only), mapped to
-// the canonical Claude Code names. Unlisted names fall through: omp's own
-// "mcp__server__tool" names are already canonical and stay as they are.
+// the canonical Claude Code names. Every other name passes through unchanged:
+// pi's "server_tool" fallback would turn omp's `browser_*` or
+// `translate_catalog` into phantom MCP servers. omp's own mcp__server__tool
+// names are already canonical; the `xd_mcp__` form is unwrapped to them.
 const OMP_TOOL_MAP = {
   bash: "Bash",
   read: "Read",
@@ -46,12 +41,11 @@ const OMP_TOOL_MAP = {
   todo: "TodoWrite",
   web_search: "WebSearch",
 };
-const piMap = mapToolWith(OMP_TOOL_MAP);
 function mapOmpTool(name) {
   if (typeof name !== "string") return name;
   const n = name.trim();
-  if (n.startsWith("mcp__")) return n;
-  return piMap(n);
+  if (n.startsWith("xd_mcp__")) return n.slice(3);
+  return Object.hasOwn(OMP_TOOL_MAP, n) ? OMP_TOOL_MAP[n] : n;
 }
 
 // relPath is relative to the sessions root: <encoded cwd>/<file>.

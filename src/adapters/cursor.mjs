@@ -505,6 +505,7 @@ function readSession(dbPath, hexDir, uuidDir, sqlite, acc) {
         bytes: dbBuf.length,
         lines: 0, // not line-oriented; malformed carries the JSON-blob parse-failure count instead
         malformed,
+        cwdRaw: session.cwdRaw,
       };
 
       return { session: { ...session, models: [...session.models] }, file };

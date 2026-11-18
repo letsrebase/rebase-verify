@@ -22,7 +22,8 @@ import { readClaudeCode } from "./adapters/claude-code.mjs";
 import { readOpencode, readOpencodeJson, defaultOpencodeRoot, mergeSources } from "./adapters/opencode.mjs";
 import { readCodex, defaultCodexRoot } from "./adapters/codex.mjs";
 import { readPi, defaultPiRoot } from "./adapters/pi.mjs";
-import { readOmp, defaultOmpRoot, isAgentRun } from "./adapters/omp.mjs";
+import { readOmp, defaultOmpRoot } from "./adapters/omp.mjs";
+import { isAgentRun } from "./agent-run.mjs";
 import { readCursor, defaultCursorRoot } from "./adapters/cursor.mjs";
 import { readKimi, defaultKimiRoot } from "./adapters/kimi.mjs";
 
@@ -31,8 +32,12 @@ export function readAllSources({ claudeRoot, sources }) {
   // rebase-verify's own agent runs leave transcripts in the agents' session
   // stores; they are dropped here, once, for every source.
   const add = (b) => {
+    // Files go too: they feed the provenance manifest and the malformed-line
+    // count, and a run killed mid-write leaves a truncated line. A file is an
+    // agent run's by its recorded cwd, or by its path (encoded cwd dirs).
     const sessions = b.sessions.filter((s) => !isAgentRun(s.cwdRaw));
-    return { ...b, sessions };
+    const files = b.files.filter((f) => !isAgentRun(f.cwdRaw) && !isAgentRun(f.relPath));
+    return { ...b, sessions, files };
   };
   bundles.push(add(readClaudeCode(claudeRoot)));
 

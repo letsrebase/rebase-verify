@@ -460,7 +460,7 @@ export function readCodex(root) {
 
     flushTurn();
 
-    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed });
+    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed, cwdRaw: session.cwdRaw });
     sessions.push({ ...session, cliVersions: [...session.cliVersions], models: [...session.models] });
   }
 

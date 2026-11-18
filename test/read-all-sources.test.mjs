@@ -104,7 +104,7 @@ function fieldString(fieldNo, str) {
 // pointing at that root. Mirrors test/cursor-adapter.test.mjs's
 // makeCursorSession but trimmed to the minimum readAllSources needs to prove
 // a session merged in. Requires node:sqlite — only call behind the sqlite gate.
-function makeCursorSessions() {
+function makeCursorSessions(cwd = "/Users/dee/proj") {
   const root = mkdtempSync(join(tmpdir(), "cu-"));
   const hexDir = "abc123hexdir00000000000000000000";
   const uuidDir = "11111111-1111-1111-1111-111111111111";
@@ -126,7 +126,7 @@ function makeCursorSessions() {
   const msgHash = createHash("sha256").update(msgData).digest();
   insBlob.run(msgHash.toString("hex"), msgData);
 
-  const rootBuf = Buffer.concat([fieldBytes(1, msgHash), fieldString(9, "file:///Users/dee/proj")]);
+  const rootBuf = Buffer.concat([fieldBytes(1, msgHash), fieldString(9, `file://${cwd}`)]);
   const rootId = createHash("sha256").update(rootBuf).digest("hex");
   insBlob.run(rootId, rootBuf);
 
@@ -143,7 +143,7 @@ function makeCursorSessions() {
 // test/kimi-adapter.test.mjs's helper but trimmed to the minimum
 // readAllSources needs to prove a session merged in. Returned root is the
 // "sessions" dir itself, matching what defaultKimiRoot() resolves to.
-function makeKimiSessions() {
+function makeKimiSessions(cwd = "/Users/dee/proj") {
   const root = join(mkdtempSync(join(tmpdir(), "ki-")), "sessions");
   const sessionDir = join(root, "wd_proj_abcdef123456", "session_ki-one");
   const agentDir = join(sessionDir, "agents", "main");
@@ -153,7 +153,7 @@ function makeKimiSessions() {
     updatedAt: "2020-01-01T00:00:00.000Z",
     title: "ignored", isCustomTitle: false,
     agents: { main: { type: "main", parentAgentId: null } },
-    custom: {}, workDir: "/Users/dee/proj", lastPrompt: "ignored",
+    custom: {}, workDir: cwd, lastPrompt: "ignored",
   }));
   const lines = [
     { type: "context.append_message", time: Date.parse("2026-01-02T03:04:06.000Z"), message: { role: "user", content: [{ type: "text", text: "hello" }], toolCalls: [], origin: { kind: "user" } } },
@@ -163,7 +163,7 @@ function makeKimiSessions() {
 }
 
 // Build a minimal opencode JSON storage tree on disk.
-function makeOpencodeStorage() {
+function makeOpencodeStorage(directory = "C:\\Users\\alice\\proj") {
   const root = join(mkdtempSync(join(tmpdir(), "oc-")), "storage");
   const w = (rel, obj) => {
     const p = join(root, rel);
@@ -172,7 +172,7 @@ function makeOpencodeStorage() {
   };
   w("session/projA/ses_one.json", {
     id: "ses_one", version: "1.1.51", projectID: "projA",
-    directory: "C:\\Users\\alice\\proj", title: "first session",
+    directory, title: "first session",
     time: { created: 1000, updated: 2000 },
   });
   w("message/ses_one/msg_u.json", { id: "msg_u", sessionID: "ses_one", role: "user", time: { created: 1000 } });
@@ -555,5 +555,46 @@ test("absent kimi source key or an empty kimi root leaves the claude-code-only b
     else process.env.HOME = prevHome;
     if (prevUserProfile === undefined) delete process.env.USERPROFILE;
     else process.env.USERPROFILE = prevUserProfile;
+  }
+});
+
+// --- rebase-verify's own agent runs are dropped, sessions AND files ---------
+
+const RUN = "/var/x/rebase-verify-agent-run-q1w2e3";
+const WIN_RUN = "C:\\Users\\alice\\AppData\\Local\\Temp\\rebase-verify-agent-run-q1w2e3";
+const OFF = { opencode: { disabled: true }, codex: { disabled: true }, pi: { disabled: true }, omp: { disabled: true }, cursor: { disabled: true }, kimi: { disabled: true } };
+const counts = (b) => [b.sessions.length, b.files.length];
+
+test("agent runs are dropped for opencode (JSON), kimi and a Windows-style cwd", () => {
+  const roots = [];
+  const mk = (f) => { const r = f(); roots.push(r); return r; };
+  const claudeRoot = mk(emptyClaudeRoot);
+  try {
+    for (const dir of [RUN, WIN_RUN]) {
+      const oc = mk(() => makeOpencodeStorage(dir));
+      assert.deepEqual(counts(readAllSources({ claudeRoot, sources: { ...OFF, opencode: { root: oc, json: true } } })), [0, 0], `opencode ${dir}`);
+      const ki = mk(() => makeKimiSessions(dir));
+      assert.deepEqual(counts(readAllSources({ claudeRoot, sources: { ...OFF, kimi: { root: ki } } })), [0, 0], `kimi ${dir}`);
+    }
+    const ocOk = mk(() => makeOpencodeStorage());
+    assert.deepEqual(counts(readAllSources({ claudeRoot, sources: { ...OFF, opencode: { root: ocOk, json: true } } })), [1, 1]);
+    const kiOk = mk(() => makeKimiSessions());
+    assert.equal(readAllSources({ claudeRoot, sources: { ...OFF, kimi: { root: kiOk } } }).sessions.length, 1);
+  } finally {
+    for (const r of roots) rmSync(r.endsWith("storage") || r.endsWith("sessions") ? join(r, "..") : r, { recursive: true, force: true });
+  }
+});
+
+test("agent runs are dropped for cursor", { skip: sqlite ? false : "node:sqlite unavailable" }, () => {
+  const roots = [];
+  const claudeRoot = emptyClaudeRoot();
+  try {
+    const run = makeCursorSessions(RUN); roots.push(run);
+    assert.deepEqual(counts(readAllSources({ claudeRoot, sources: { ...OFF, cursor: { root: run } } })), [0, 0]);
+    const ok = makeCursorSessions(); roots.push(ok);
+    assert.deepEqual(counts(readAllSources({ claudeRoot, sources: { ...OFF, cursor: { root: ok } } })), [1, 1]);
+  } finally {
+    for (const r of roots) rmSync(r, { recursive: true, force: true });
+    rmSync(claudeRoot, { recursive: true, force: true });
   }
 });
