@@ -13,10 +13,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const command = readFileSync(new URL("../.claude/commands/apply-new.md", import.meta.url), "utf8");
+const command = readFileSync(new URL("../.claude/commands/work-profile.md", import.meta.url), "utf8");
 const profileSrc = readFileSync(new URL("../src/profile.mjs", import.meta.url), "utf8");
 const llmSrc = readFileSync(new URL("../src/profile-llm.mjs", import.meta.url), "utf8");
-const binSrc = readFileSync(new URL("../bin/apply-new.mjs", import.meta.url), "utf8");
+const binSrc = readFileSync(new URL("../bin/work-profile.mjs", import.meta.url), "utf8");
 
 test("slash command schema covers every narrative key assembleProfile consumes", () => {
   const keys = new Set([...profileSrc.matchAll(/narrative\?\.([a-z_]+)/g)].map((m) => m[1]));
@@ -73,7 +73,7 @@ test("example repoLabels in the slash command are fictional (acme-*)", () => {
 });
 
 // --- the Node floor and the payload preview (defect-to-test) -----------------
-// 6. engines >=20 was advisory only: `node bin/apply-new.mjs` bypassed npm's
+// 6. engines >=20 was advisory only: `node bin/work-profile.mjs` bypassed npm's
 //    check entirely and died on old Node with a bare ReferenceError. The floor
 //    now lives in three places that must not drift: engines, the README
 //    requirement line, and the runtime check in bin.

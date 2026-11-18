@@ -194,8 +194,9 @@ export function assembleProfile({ contact, projects, narrative, fingerprint, for
   return {
     schema: "playnew-profile/v1",
     generatedAt: new Date().toISOString(),
-    // The candidate's only declared identity. No surname in v1.
-    contact: contact && typeof contact === "object" ? contact : { name: contact || null },
+    // Optional and nullable: the schema keeps the field for readers of older profiles, but this tool no
+    // longer asks for it (the hub's sign-in identifies the person) and `submit` never sends it.
+    contact: contact && typeof contact === "object" ? contact : null,
     window: { from: froms[0] || null, to: tos.at(-1) || null },
     volume: {
       products: projects.length,
