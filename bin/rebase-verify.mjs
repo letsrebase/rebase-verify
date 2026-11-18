@@ -6,6 +6,9 @@
 //
 //   rebase-verify                     # = rebase-verify generate
 //   rebase-verify generate            # build out/profile.md + out/candidate.json locally
+//   rebase-verify generate --agent <id> [--model <id>]
+//                                     # the same, the narrative written and the practices classified
+//                                     # by one of your coding agents (see src/agents/registry.mjs)
 //   rebase-verify prepare             # only emit out/narrative-input.json (no narrative), plus
 //                                     # out/practices-input.json and out/practices-sample.json
 //   rebase-verify finalize            # finalize using --narrative-file out/narrative.json
@@ -26,11 +29,12 @@
 //                                  # recorded in the profile.
 //   --narrative-file narrative.json
 //
-// Three ways to provide the narrative step (the qualitative prose):
+// Four ways to provide the narrative step (the qualitative prose):
 //   A. Inside Claude Code via .claude/commands/rebase-verify.md, uses the
 //      candidate's own subscription, no API key needed.
 //   B. With the Claude API:  set ANTHROPIC_API_KEY and run `generate`.
 //   C. Manually:  `prepare` -> hand-write narrative.json -> `finalize`.
+//   D. With your coding agent over ACP:  `generate --agent <id>`.
 
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -42,9 +46,12 @@ import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
 import { practicesFiles } from "../src/practices-sample.mjs";
-import { runPracticesStep } from "../src/practices-llm.mjs";
+import { PRACTICES_WARN_WHAT, runPracticesStep } from "../src/practices-llm.mjs";
+import { AGENTS } from "../src/agents/registry.mjs";
+import { runWithAgent } from "../src/agents/run.mjs";
+import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } from "../src/agents/acp.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
-import { anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
+import { MODEL, anthropicCall, generateNarrative, narrativeInputFor, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
 import { resolveHub } from "../src/hub.mjs";
 import { submitProfile, buildPayload } from "../src/submit.mjs";
@@ -119,14 +126,79 @@ try {
 }
 
 // Every generated file (narrative-input.json, narrative.json, practices-input.json,
-// practices-sample.json, practices.json, practices-detail.json, candidate.json,
-// profile.md) lands in ./out, never in the repo root.
+// practices-sample.json, practices.json, practices-detail.json, agent-log.jsonl,
+// candidate.json, profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
 const outDir = () => {
   const out = join(process.cwd(), OUT_DIR);
   mkdirSync(out, { recursive: true });
   return out;
 };
+
+// Who wrote what, as the profile records it. The slash command (and a hand-written
+// narrative) reaches `finalize` through files, so its model is not known.
+const SLASH_COMMAND = { agent: "slash-command", model: null };
+const API_KEY_PATH = { agent: "anthropic-api", model: MODEL };
+
+const die = (msg, code = 2) => {
+  console.error(msg);
+  process.exit(code);
+};
+
+// The agent behind `generate --agent <id>`, checked before any log is read.
+function resolveAgent() {
+  if (!has("agent")) {
+    if (has("model")) die("--model needs --agent <id>.");
+    return null;
+  }
+  const ids = AGENTS.map((a) => a.id).join(", ");
+  const id = flag("agent");
+  if (!id) die(`--agent needs an id. Agents: ${ids}`);
+  const entry = AGENTS.find((a) => a.id === id);
+  if (!entry) die(`Unknown agent "${id}". Agents: ${ids}`);
+  if (!entry.detect({ env: process.env }).installed) {
+    die(entry.kind === "api" ? `${entry.label} is not set up: ${entry.installHint}.` : `${entry.label} is not installed: ${entry.installHint}.`);
+  }
+  if (flag("narrative-file")) die("--agent writes the narrative itself; drop --narrative-file.");
+  if (has("model") && !flag("model")) die("--model needs a model id.");
+  return entry;
+}
+
+// One agent run for both steps. Ctrl-C or SIGTERM aborts it (the agent runs in
+// its own process group, so the terminal's signal does not reach it); the run
+// removes its temp dir and transcript before the abort comes back.
+async function runAgentStep(entry, { out, narrativeInput }) {
+  const inputFile = join(out, "practices-input.json");
+  const practicesInput = existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, "utf8")) : null;
+  const model = flag("model");
+  console.log(`[4/5] Narrative${practicesInput ? " and practices" : ""} with ${entry.label}${model ? ` (${model})` : ""} ...`);
+  const ctl = new AbortController();
+  const stop = () => ctl.abort();
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  try {
+    return await runWithAgent({
+      agent: entry,
+      model,
+      narrativeInput,
+      practicesInput,
+      logFile: join(out, "agent-log.jsonl"),
+      signal: ctl.signal,
+      onStatus: (s) =>
+        console.log(s.step === "narrative" ? "      writing the narrative ..." : `      classifying practices, batch ${s.batch} of ${s.total}${s.retry ? " (again)" : ""} ...`),
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") die("Stopped.", 130);
+    if (e instanceof AgentAuthError) die(`${entry.label} is not logged in: ${entry.loginHint}.`);
+    if (e instanceof ToolUseError) die("The agent tried to use a tool; nothing it wrote was kept.");
+    if (e instanceof ModelNotOfferedError) die(`${entry.label} does not offer model "${model}"${e.offered?.length ? `. It offers: ${e.offered.join(", ")}` : ""}.`);
+    if (e instanceof AgentStartError) die(`${e.message}.`);
+    return die(`${e.message}`);
+  } finally {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+  }
+}
 
 async function loadProfileInputs(out) {
   let root = flag("root", join(homedir(), ".claude", "projects"));
@@ -212,21 +284,13 @@ function writePracticesInput(out, parsed, tz) {
 }
 
 async function cmdGenerate() {
+  const entry = resolveAgent();
   const out = outDir();
+  if (entry) rmSync(join(out, "agent-log.jsonl"), { force: true });
   console.log(`\nrebase-verify generate\n`);
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: codePractices, sources } = await loadProfileInputs(out);
   writePracticesInput(out, parsed, tzFlag);
-  const key = process.env.ANTHROPIC_API_KEY;
-  const step = await runPracticesStep(out, {
-    key, call: key ? anthropicCall(key) : null,
-    warn: () => warnApiKey("the person's own messages from the sampled sessions (already redacted)"),
-  });
-  const practices = step === "written" ? mergePracticesAnswers(out, codePractices) : codePractices;
-
-  console.log(`[4/5] Narrative ...`);
-  const narrativeFile = flag("narrative-file");
-  const { narrative, input } = await generateNarrative(selected, enrichments, {
-    overrideFile: narrativeFile,
+  const narrativeOptions = {
     trajectory,
     aiRelationship,
     agenticLiteracy,
@@ -234,18 +298,41 @@ async function cmdGenerate() {
     distribution,
     allProjects: projects,
     compactionSummaries: parsed.compactionSummaries,
-  });
-  if (!narrative) {
-    writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
-    console.log(`      no narrative yet (no API key, no --narrative-file).`);
-    console.log(`      Inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
-    console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  rebase-verify finalize`);
-    return;
+  };
+  let practices;
+  let narrative;
+  let generatedBy;
+  if (entry) {
+    // Nothing is written until the agent has answered both steps and every answer checked out.
+    const run = await runAgentStep(entry, { out, narrativeInput: narrativeInputFor(selected, enrichments, narrativeOptions) });
+    if (run.practicesAnswers) writeFileSync(join(out, "practices.json"), JSON.stringify(run.practicesAnswers, null, 2));
+    practices = run.practicesAnswers ? mergePracticesAnswers(out, codePractices, run.used) : codePractices;
+    narrative = run.narrative;
+    generatedBy = { narrative: run.used };
+  } else {
+    const key = process.env.ANTHROPIC_API_KEY;
+    const step = await runPracticesStep(out, {
+      key, call: key ? anthropicCall(key) : null,
+      warn: () => warnApiKey(PRACTICES_WARN_WHAT),
+    });
+    practices = step === "written" ? mergePracticesAnswers(out, codePractices, API_KEY_PATH) : codePractices;
+
+    console.log(`[4/5] Narrative ...`);
+    const generated = await generateNarrative(selected, enrichments, { overrideFile: flag("narrative-file"), ...narrativeOptions });
+    narrative = generated.narrative;
+    if (!narrative) {
+      writeFileSync(join(out, "narrative-input.json"), JSON.stringify(generated.input, null, 2));
+      console.log(`      no narrative yet (no API key, no --narrative-file).`);
+      console.log(`      Inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
+      console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  rebase-verify finalize`);
+      return;
+    }
+    if (generated.source === "api") generatedBy = { narrative: API_KEY_PATH };
   }
 
   console.log(`[5/5] Assembling and saving ...\n`);
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, generatedBy,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -285,8 +372,9 @@ async function cmdPrepare() {
 
 // The model's answers, when the person's model wrote out/practices.json: checked
 // against the sample file written at prepare (never resampled), then merged into
-// the block. A bad or unreadable file stops the step; nothing is saved.
-function mergePracticesAnswers(out, codeBlock) {
+// the block, with who classified them. A bad or unreadable file stops the step;
+// nothing is saved.
+function mergePracticesAnswers(out, codeBlock, classifiedBy) {
   const answersFile = join(out, "practices.json");
   if (!existsSync(answersFile)) return codeBlock;
   const sampleFile = join(out, "practices-sample.json");
@@ -299,7 +387,7 @@ function mergePracticesAnswers(out, codeBlock) {
   const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
   const ids = (shared.practices ?? []).filter((p) => p.method === "model").map((p) => p.id);
   try {
-    const { block, detail } = mergeModelPractices(codeBlock, answers, sample, ids, { tz: tzFlag });
+    const { block, detail } = mergeModelPractices(codeBlock, answers, sample, ids, { tz: tzFlag, classifiedBy });
     writeFileSync(join(out, "practices-detail.json"), JSON.stringify(detail, null, 2));
     console.log(`Merged the model's answers for ${sample.length} sessions (per-session detail in ${OUT_DIR}/practices-detail.json, local only).`);
     return block;
@@ -317,7 +405,7 @@ async function cmdFinalize() {
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
-  const merged = mergePracticesAnswers(out, practices);
+  const merged = mergePracticesAnswers(out, practices, SLASH_COMMAND);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -330,6 +418,7 @@ async function cmdFinalize() {
   });
   writeProfile(out, assembleWithGroundedness({
     projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: merged, sources,
+    generatedBy: { narrative: SLASH_COMMAND },
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }

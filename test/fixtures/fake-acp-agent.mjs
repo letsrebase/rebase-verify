@@ -11,10 +11,15 @@
 //   FAKE_EXIT     "init" | "prompt": print to stderr and exit during that call
 //   FAKE_GRANDCHILD  path: spawn a sleeper grandchild and write its pid there
 //   FAKE_HANG     wait for session/cancel, then stop with "cancelled"
+//   FAKE_SMART    answer like a profile writer: a narrative for a narrative prompt, every practice true for a
+//                 practices prompt (the last line of the prompt is the JSON input)
+//   FAKE_PRACTICES_BAD  "once" | "always": answer the first (or every) practices prompt with text that holds no JSON
+//   FAKE_CHATTER  with FAKE_SMART: put prose with stray braces before and after the JSON
+//   FAKE_PROMPT_LOG  path: append one JSON line per prompt text
 import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 
 const env = process.env;
 if (env.FAKE_GRANDCHILD) {
@@ -35,6 +40,27 @@ function configOptions() {
   if (models.length)
     out.push({ id: "model", name: "Model", category: "model", type: "select", currentValue: state.model, options: models.map((m) => ({ value: m, name: `Name ${m}` })) });
   return out;
+}
+
+let practicesCalls = 0;
+function smartAnswer(promptText) {
+  let input = null;
+  try {
+    input = JSON.parse(promptText.trim().split("\n").pop());
+  } catch {}
+  let body;
+  if (Array.isArray(input?.sessions)) {
+    practicesCalls++;
+    if (env.FAKE_PRACTICES_BAD === "always" || (env.FAKE_PRACTICES_BAD === "once" && practicesCalls === 1)) return "I would rather not answer that.";
+    body = JSON.stringify(Object.fromEntries(input.sessions.map((s) => [s.id, Object.fromEntries((input.practices ?? []).map((p) => [p, true]))])));
+  } else {
+    body = JSON.stringify({
+      summary: "Builds a web product with an AI agent.",
+      cognitive: { narrative: "Splits work into small checked steps." },
+      projects: (input?.projects ?? []).map((p) => ({ id: p.id, domain: "web product", did: "Built and shipped features." })),
+    });
+  }
+  return env.FAKE_CHATTER ? `Sure {thing}, here it is:\n\n${body}\n\nHope that helps {really}.` : body;
 }
 
 const waitCancel = (signalBox) => new Promise((resolve) => (signalBox.resolve = resolve));
@@ -76,6 +102,7 @@ const app = acp.agent({ name: "fake-acp-agent" })
       throw new acp.RequestError(-32603, "Internal error", { details: "No model selected. Use /login" });
     const update = (u) => client.notify("session/update", { sessionId: "s1", update: u });
     const promptText = params.prompt.map((b) => b.text ?? "").join("");
+    if (env.FAKE_PROMPT_LOG) appendFileSync(env.FAKE_PROMPT_LOG, JSON.stringify(promptText) + "\n");
     if (env.FAKE_EXIT === "prompt") {
       process.stderr.write("boom: died mid-turn\n");
       process.exit(4);
@@ -104,6 +131,7 @@ const app = acp.agent({ name: "fake-acp-agent" })
       });
       answer = JSON.stringify({ perm: r.outcome });
     }
+    if (env.FAKE_SMART) answer = smartAnswer(promptText);
     if (env.FAKE_ECHO)
       answer = JSON.stringify({
         cwd: process.cwd(),

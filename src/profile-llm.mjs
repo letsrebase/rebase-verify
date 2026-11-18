@@ -8,10 +8,11 @@
 // (which is full of real names) goes in, context-only prose comes out.
 
 import { readFileSync } from "node:fs";
+import { firstJsonObject } from "./agents/json-answer.mjs";
 
 export const MODEL = "claude-opus-4-7";
 
-const SYSTEM = `You write a candidate's work profile from the logs of their activity with AI development tools.
+export const NARRATIVE_SYSTEM = `You write a candidate's work profile from the logs of their activity with AI development tools.
 
 HARD RULES:
 - NO proper names: no companies, clients, people, products, brands, or repositories. Describe each project ONLY by abstract domain and context (e.g. "talent and campaigns management platform", not the actual product name). Exception: the agent CLI names in the orchestration data (e.g. Claude Code, opencode, codex, aider) are tools, not client brands — you may name them when citing the per-CLI split.
@@ -170,8 +171,8 @@ async function postMessage(key, system, user, maxTokens) {
 }
 
 async function callAnthropic(input, key) {
-  const text = await postMessage(key, SYSTEM, JSON.stringify(input), 3000);
-  return JSON.parse(text.replace(/^```json\s*|\s*```$/g, "").trim());
+  const text = await postMessage(key, NARRATIVE_SYSTEM, JSON.stringify(input), 3000);
+  return firstJsonObject(text);
 }
 
 // A `call({ system, user }) => Promise<string>` for the raw text answer.
@@ -230,17 +231,18 @@ export function narrativeInputFor(selected, enrichments, { trajectory, compactio
   return narrativeInput(selected, enrichments, trajectory, compactionSummaries, aiRelationship, agenticLiteracy, intensity, distribution, allProjects);
 }
 
-// Returns { narrative, input }. narrative is null if no key and no override.
+// Returns { narrative, input, source }. narrative is null if no key and no
+// override; source is "file", "api" or null.
 // An explicit --narrative-file always wins over the env key: the API path
 // sends the narrative input off-machine, so it must never engage silently
 // or discard a hand-curated narrative just because a key is in the env.
 export async function generateNarrative(selected, enrichments, { overrideFile, trajectory, compactionSummaries, aiRelationship, agenticLiteracy, intensity, distribution, allProjects } = {}) {
   const input = narrativeInputFor(selected, enrichments, { trajectory, compactionSummaries, aiRelationship, agenticLiteracy, intensity, distribution, allProjects });
-  if (overrideFile) return { narrative: validateNarrative(JSON.parse(readFileSync(overrideFile, "utf8")), overrideFile), input };
+  if (overrideFile) return { narrative: validateNarrative(JSON.parse(readFileSync(overrideFile, "utf8")), overrideFile), input, source: "file" };
   const key = process.env.ANTHROPIC_API_KEY;
   if (key) {
     warnApiKey();
-    return { narrative: validateNarrative(await callAnthropic(input, key), "API"), input };
+    return { narrative: validateNarrative(await callAnthropic(input, key), "API"), input, source: "api" };
   }
-  return { narrative: null, input };
+  return { narrative: null, input, source: null };
 }

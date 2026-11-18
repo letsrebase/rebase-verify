@@ -280,6 +280,30 @@ export const AGENTS = [
   },
 ];
 
+// Test-only: REBASE_VERIFY_TEST_AGENT=<path to an ACP agent script> adds an
+// entry `test-agent` that runs it with node, handing it the FAKE_* variables.
+// It is how the end-to-end tests drive `generate --agent` without a real agent.
+if (process.env.REBASE_VERIFY_TEST_AGENT) {
+  AGENTS.push({
+    id: "test-agent",
+    label: "Test agent",
+    kind: "acp",
+    tested: false,
+    source: null,
+    detect: () => ({ installed: true, how: "REBASE_VERIFY_TEST_AGENT is set" }),
+    spec: ({ system } = {}) => ({
+      command: process.execPath,
+      args: [process.env.REBASE_VERIFY_TEST_AGENT],
+      env: Object.keys(process.env).filter((k) => k.startsWith("FAKE_")),
+      systemPromptVia: "inline",
+      system,
+    }),
+    loginHint: "log in to the test agent",
+    installHint: "the test agent needs no install",
+    cleanup: nothing,
+  });
+}
+
 // Cursor ships its binary as `agent`: only trust that name when ~/.cursor exists.
 const cursor = AGENTS.find((a) => a.id === "cursor");
 const cursorBase = cursor.detect;

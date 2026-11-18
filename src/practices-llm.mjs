@@ -3,10 +3,14 @@
 // batches; the answers are checked before anything is written.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { firstJsonObject } from "./agents/json-answer.mjs";
 import { TONE_RULE } from "./practices-rules.mjs";
 import { validateModelAnswers } from "./practices.mjs";
 
 export const PRACTICES_BATCH = 10;
+
+// What the person is told before their messages go to the API.
+export const PRACTICES_WARN_WHAT = "the person's own messages from the sampled sessions (already redacted)";
 
 export function practicesPrompt(practices) {
   const list = practices.map((p) => {
@@ -29,26 +33,41 @@ export function practicesPrompt(practices) {
   ].join("\n");
 }
 
-const parseAnswer = (text) => JSON.parse(String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
-
 // input: { practices: [{ id, definition, ... }], sessions: [{ id, messages }] }
-export async function classifyPractices(input, { call }) {
+// `retries`: how many times a batch is asked again when its answer holds no JSON
+// object or does not fit. `onBatch({ batch, total, retry })` fires before each ask.
+// A failure of `call` itself passes through when it carries its own name (tool
+// use, login, abort); a plain one is prefixed with the batch as before.
+export async function classifyPractices(input, { call, retries = 0, onBatch } = {}) {
   const system = practicesPrompt(input.practices);
   const ids = input.practices.map((p) => p.id);
   const answers = {};
   const total = Math.ceil(input.sessions.length / PRACTICES_BATCH);
   for (let i = 0; i < input.sessions.length; i += PRACTICES_BATCH) {
     const sessions = input.sessions.slice(i, i + PRACTICES_BATCH);
-    const batch = `batch ${i / PRACTICES_BATCH + 1} of ${total}`;
+    const n = i / PRACTICES_BATCH + 1;
+    const batch = `batch ${n} of ${total}`;
     const user = JSON.stringify({ practices: ids, sessions });
     let parsed;
-    try {
-      parsed = parseAnswer(await call({ system, user }));
-    } catch (e) {
-      throw new Error(`practices ${batch}: ${e.message}`);
+    for (let attempt = 0; ; attempt++) {
+      onBatch?.({ batch: n, total, retry: attempt > 0 });
+      let text;
+      try {
+        text = await call({ system, user });
+      } catch (e) {
+        throw e instanceof Error && e.name !== "Error" ? e : new Error(`practices ${batch}: ${e.message}`);
+      }
+      let failure = null;
+      try {
+        parsed = firstJsonObject(text);
+        const v = validateModelAnswers(parsed, sessions, ids);
+        if (!v.ok) failure = v.error;
+      } catch (e) {
+        failure = e.message;
+      }
+      if (!failure) break;
+      if (attempt >= retries) throw new Error(`practices ${batch}: ${failure}`);
     }
-    const v = validateModelAnswers(parsed, sessions, ids);
-    if (!v.ok) throw new Error(`practices ${batch}: ${v.error}`);
     Object.assign(answers, parsed);
   }
   return answers;
