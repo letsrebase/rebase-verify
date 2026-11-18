@@ -180,6 +180,36 @@ function removeCodex(runDir, ctx) {
   return removed;
 }
 
+// Claude Code leaves an empty project dir for the run's cwd (only an empty memory/) even with
+// persistSession off. Removed when its name carries the run name as a whole token and no
+// transcript (.jsonl) is inside.
+function removeClaude(runDir, ctx) {
+  const name = runName(runDir);
+  if (!name) return [];
+  const base = envGet(envOf(ctx), "CLAUDE_CONFIG_DIR") ?? join(homeOf(ctx), ".claude");
+  const root = join(base, "projects");
+  let entries;
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const removed = [];
+  for (const e of entries) {
+    if (!e.isDirectory() || !hasToken(e.name, name)) continue;
+    const p = join(root, e.name);
+    try {
+      if (lstatSync(p).isSymbolicLink()) continue;
+      let transcript = false;
+      for (const f of walkFiles(p)) if (f.endsWith(".jsonl")) transcript = true;
+      if (transcript) continue;
+      rmSync(p, { recursive: true, force: true });
+      removed.push(p);
+    } catch {}
+  }
+  return removed;
+}
+
 const nothing = () => [];
 
 function acpEntry({ id, label, bins, homeDirs, command, args, source = null, loginHint, installHint }) {
@@ -233,7 +263,7 @@ export const AGENTS = [
     }),
     loginHint: "run `claude`, then /login",
     installHint: "install Claude Code from https://claude.com/claude-code",
-    cleanup: nothing,
+    cleanup: removeClaude,
   },
   {
     id: "codex",

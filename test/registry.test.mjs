@@ -188,3 +188,33 @@ test("onPath: exec bit, PATHEXT, quotes, unreadable and file entries", () => {
   assert.equal(onPath("wintool", { PATH: d, PATHEXT: ".EXE" }, "win32"), false);
   assert.equal(onPath("wintool", { PATH: `"${d}"`, PATHEXT: ".CMD" }, "win32"), true);
 });
+
+test("claude cleanup removes the empty project dir of the run, never one with a transcript", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = mkdtempSync(join(tmpdir(), "rv-claude-"));
+  try {
+    const run = join(tmpdir(), "rebase-verify-agent-run-abc123");
+    const projects = join(home, ".claude", "projects");
+    const mine = join(projects, run.replace(/[\\/:.]/g, "-"));
+    const withTranscript = join(projects, `${run.replace(/[\\/:.]/g, "-")}-more`);
+    const other = join(projects, "-home-me-work");
+    for (const d of [join(mine, "memory"), join(withTranscript, "memory"), other]) mkdirSync(d, { recursive: true });
+    writeFileSync(join(withTranscript, "s.jsonl"), "{}\n");
+    const longer = join(projects, `${run.replace(/[\\/:.]/g, "-")}x`);
+    mkdirSync(longer, { recursive: true });
+    assert.deepEqual(get("claude-code").cleanup(run, { home, env: {} }), [mine]);
+    assert.equal(existsSync(mine), false);
+    assert.equal(existsSync(other), true);
+    assert.equal(existsSync(longer), true, "a longer name is not this run's");
+    assert.equal(existsSync(join(withTranscript, "s.jsonl")), true);
+    // CLAUDE_CONFIG_DIR is honoured
+    const cfg = join(home, "cfg");
+    mkdirSync(join(cfg, "projects", run.replace(/[\\/:.]/g, "-"), "memory"), { recursive: true });
+    assert.deepEqual(get("claude-code").cleanup(run, { home, env: { CLAUDE_CONFIG_DIR: cfg } }), [join(cfg, "projects", run.replace(/[\\/:.]/g, "-"))]);
+    assert.deepEqual(get("claude-code").cleanup("/tmp/not-a-run", { home, env: {} }), []);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});

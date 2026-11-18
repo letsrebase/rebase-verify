@@ -24,7 +24,10 @@ export function liveStatus({ onCancel, input = process.stdin, output = process.s
   const clear = () => output.write("\r\x1b[2K");
   const draw = () => {
     clear();
-    output.write(`${style("magenta", frames[frame % frames.length])}  ${message}`);
+    // never wider than the terminal, or the redraw would wrap and stack lines
+    const room = Math.max(10, (output.columns || 80) - 4);
+    const text = message.length > room ? `${message.slice(0, room - 1)}…` : message;
+    output.write(`${style("magenta", frames[frame % frames.length])}  ${text}`);
   };
   const onData = (chunk) => {
     if (String(chunk).includes(CTRL_C)) onCancel();

@@ -407,3 +407,29 @@ test("the wizard refuses flags that belong to a sub-command", () => {
   assert.match(rejectedFlags(has(["narrative-file"])), /^--narrative-file needs a sub-command/);
   assert.match(rejectedFlags(has(["narrative-file", "dry-run"])), /^--narrative-file and --dry-run need a sub-command/);
 });
+
+test("no SIGINT or SIGTERM listener is left when submit runs", async () => {
+  const ui = fakeUi({ select: [undefined, undefined, "submit"] });
+  const orig = ui.select;
+  ui.select = async (o) => {
+    const v = await orig(o);
+    return v === undefined ? o.initialValue ?? o.options[0].value : v;
+  };
+  const proc = new EventEmitter();
+  let during = null;
+  const { deps } = fakeDeps({ submit: async () => (during = [proc.listenerCount("SIGINT"), proc.listenerCount("SIGTERM")]) });
+  assert.equal(await runWizard({ ui, deps, flags: { version: "1" }, out: "out", proc, now: () => 0 }), 0);
+  assert.deepEqual(during, [0, 0]);
+});
+
+test("the live status never writes a line wider than the terminal", () => {
+  const writes = [];
+  const input = { on() {}, off() {} };
+  const live = liveStatus({ onCancel() {}, input, output: { columns: 30, write: (t) => writes.push(t) }, style: (_c, t) => t, delay: 1e6 });
+  live.start("x");
+  live.message("Classifying practices · batch 12 of 40 · 123.4k tokens · $12.34");
+  const line = writes.at(-1);
+  assert.ok(line.length <= 29, `${line.length}: ${line}`);
+  assert.match(line, /…$/);
+  live.stop("");
+});

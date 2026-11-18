@@ -4,6 +4,8 @@
 // the disk is injected, and the bin passes the same functions the sub-commands
 // use. `ui` is the @clack/prompts surface.
 import { rmSync } from "node:fs";
+import { basename } from "node:path";
+import { AGENT_RUN_MARKER } from "./agent-run.mjs";
 import { spawnSync } from "node:child_process";
 import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError } from "./agents/acp.mjs";
 import { RUN_SYSTEM } from "./agents/run.mjs";
@@ -108,7 +110,8 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
   const ctl = new AbortController();
   const stop = () => ctl.abort();
   const kill = deps.killGroup ?? killGroup;
-  const removeDir = deps.removeDir ?? ((d) => rmSync(d, { recursive: true, force: true }));
+  // only ever a run dir of ours
+  const removeDir = deps.removeDir ?? ((d) => basename(d).startsWith(AGENT_RUN_MARKER) && rmSync(d, { recursive: true, force: true }));
   let agent = null;
   let session = null;
   let runDir = null;
@@ -344,6 +347,9 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
     } finally {
       // the run has closed the agent and removed what it left: nothing for the exit net to do
       proc.off("exit", onExit);
+      // from here on Ctrl-C belongs to whatever comes next (the sign-in wait of submit)
+      proc.off("SIGINT", stop);
+      proc.off("SIGTERM", stop);
     }
     spin.stop("The narrative and the practices are ready");
     session = null;
