@@ -38,6 +38,7 @@ import { readAllSources } from "../src/sources.mjs";
 import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
+import { buildPracticesInput, sampleSessions, sampleFile } from "../src/practices-sample.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { generateNarrative } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
@@ -181,10 +182,25 @@ function writeProfile(out, profile) {
   console.log(`To send it to rebase when ready:  rebase-verify submit`);
 }
 
+// The model-classified practices: written only when some are published and
+// there is something to read. Both files stay local; the sample file maps the
+// opaque ids back to real sessions and is never sent.
+function writePracticesInput(out, parsed, tz) {
+  const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+  const practices = (shared.practices ?? []).filter((p) => p.method === "model");
+  if (!practices.length) return;
+  const sample = sampleSessions(parsed, { tz });
+  if (!sample.length) return;
+  writeFileSync(join(out, "practices-input.json"), JSON.stringify(buildPracticesInput(parsed, { tz, practices, sample }), null, 2));
+  writeFileSync(join(out, "practices-sample.json"), JSON.stringify(sampleFile(sample), null, 2));
+  console.log(`Wrote ${OUT_DIR}/practices-input.json (${sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
+}
+
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\nrebase-verify generate\n`);
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  writePracticesInput(out, parsed, tzFlag);
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
@@ -231,6 +247,7 @@ async function cmdPrepare() {
   const out = outDir();
   console.log(`\nrebase-verify prepare\n`);
   const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
+  writePracticesInput(out, parsed, tzFlag);
   const { input } = await generateNarrative(selected, enrichments, {
     overrideFile: null,
     trajectory,

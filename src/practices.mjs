@@ -165,7 +165,7 @@ export function sessionFacts(session) {
 
 // The sessions the digest reads (ephemeral sandboxes are skipped), each with the
 // product and month the counts are grouped by.
-function* eachSession(parsed, tz) {
+export function* eachSession(parsed, tz) {
   const monthKey = monthKeyFor(tz);
   const sessions = Array.isArray(parsed?.sessions) ? parsed.sessions : [];
   for (const [i, s] of sessions.entries()) {

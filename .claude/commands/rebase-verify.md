@@ -88,7 +88,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
    **Question 4: Narrative refinements.** Ask if anything in the summary, cognitive narrative, trajectory narrative, or per-project text reads off. If yes, rewrite `out/narrative.json` (same hard rules) and run finalize again.
 
-7. **Clean up.** Delete `out/narrative-input.json` once the candidate is satisfied (it contains local repo context with real names). Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
+7. **Clean up.** Delete `out/narrative-input.json`, `out/practices-input.json` and `out/practices-sample.json` (when present) once the candidate is satisfied (it contains local repo context with real names). Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
 
 8. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score`: show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
 

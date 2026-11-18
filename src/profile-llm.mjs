@@ -70,7 +70,7 @@ Reply ONLY with a valid JSON in this shape:
 // soft constraints alone: replace capitalised tokens (not at sentence start)
 // with a generic marker. False positives are acceptable, false negatives are
 // the leak risk.
-function scrubProperNouns(text) {
+export function scrubProperNouns(text) {
   if (!text) return text;
   return text
     .replace(/(?<!^|[.!?]\s|\n)\b([A-ZÀ-Ý][a-zà-ÿ]{2,})(?!\.\w)/g, "⟨name⟩");
