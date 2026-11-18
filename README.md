@@ -90,7 +90,7 @@ The five model practices are classified by the model you already use, not by reb
 - `raises_risks`: raises a risk: security, data loss, cost, performance, compatibility, rollout.
 - `limits_scope`: cuts, splits or defers part of the work explicitly.
 
-Only the counts leave your machine. The per-session answers stay in `out/practices-detail.json`, which is never sent, and `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json` are deleted when you are done. The hub shows these five as "dal modello della persona, non ricontrollato": it cannot recheck them, because your messages never reach it.
+With the slash command, your messages go to whatever provider your agent already uses; rebase never receives them. With `generate` and `ANTHROPIC_API_KEY` set, the sample (up to 60 sessions, 12 messages of 600 characters each, yours, redacted) is sent to api.anthropic.com under your key, even when `--narrative-file` is given. Only the counts leave your machine for rebase. The per-session answers stay in `out/practices-detail.json`, which is never sent. The slash command's last step deletes `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json`; with `generate` or a manual `prepare` and `finalize` they stay in `out/` until you delete it (`out/` is the one folder to delete), and the next `prepare` replaces them. The hub shows these five as "dal modello della persona, non ricontrollato": it cannot recheck them, because your messages never reach it.
 
 **How the five were checked.** A model practice is published only if it passes two checks at 90% or better. Agreement: the model's answers match a written reference set of 224 sessions (Italian and English, with at least 8 clear cases and 8 near misses per practice, expected answers fixed when written and checked by a blind second reader). Stability: two runs of the model on the same 40 real sessions give the same answer. The run used `claude-opus-4-7`:
 
@@ -101,6 +101,8 @@ Only the counts leave your machine. The per-session answers stay in `out/practic
 | `states_done_criteria` | 223/224 | 40/40 |
 | `raises_risks` | 218/224 | 39/40 |
 | `limits_scope` | 220/224 | 36/40 |
+
+What the checks show, and what they do not: the reference sessions are written, not real. A blind second reader labelled them, and the sessions where it disagreed with the writer were rewritten or dropped (6 rewritten, 16 dropped of 240), so the agreement figures are on cases two readers agree on. Agreement shows that the model reads the rubric as its writers do; stability shows that its answers repeat. Some of the 40 stability sessions were dispatched by an agent rather than typed by a person. Neither number is accuracy on real sessions.
 
 A sixth candidate, `gives_context_and_constraints` (explains the goal, the constraints, or who the work is for, before asking for changes), reached 196/224 (87.5%) agreement, below the threshold, so it is not published and is not classified. To run the checks again: `node scripts/practices-gate.mjs agreement` and `node scripts/practices-gate.mjs stability` (see the header of the script for the options).
 
@@ -139,13 +141,15 @@ Under the EU AI Act (Regulation 2024/1689), systems that filter job applications
 
 You decide which projects rebase sees, so the tool can't see what's missing. Logs of solo work mostly show execution, which means leadership, mentoring, and the work of being with humans is invisible from here. The thresholds (read-to-edit above 2, ≥15 delegations) are empirical: we don't know yet how they hold across hundreds of people. The narrative is written by a model; the prompt constrains it, it doesn't make it neutral. A person at rebase reads each profile by hand, and we're still learning what to look for.
 
+The five model practices come from your own model reading your own messages: you can steer your agent or edit the answers file, and the hub cannot recheck them.
+
 If you spot something we should change, [open an issue](https://github.com/letsrebase/rebase-verify/issues).
 
 ## Commands
 
 | | |
 |---|---|
-| `generate` *(default)* | full profile, locally |
+| `generate` *(default)* | full profile, locally; with `ANTHROPIC_API_KEY` set, the key sends the narrative input and the practices sample to Anthropic |
 | `prepare` | `out/narrative-input.json`, for writing the narrative manually, and `out/practices-input.json` with `out/practices-sample.json` for the model practices; `finalize` must get the same `--tz` |
 | `finalize --narrative-file out/narrative.json` | finalize after `prepare` |
 | `submit --dry-run` | write the exact outgoing payload to `out/payload-preview.json`, send nothing |
