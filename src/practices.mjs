@@ -8,7 +8,7 @@ import { DEFAULT_TZ, isValidTimezone, monthKeyFor } from "./days.mjs";
 import { isEphemeral, repoKey, splitTopLevel, stripHeredocs } from "./digest.mjs";
 import {
   ADAPTERS_WITHOUT, CODE_PRACTICES, isCheckCommand, isCommitCommand, isDesignDocPath, isDiffCommand,
-  isPlanPath, isSecurityCommand, isSourcePath, isTestPath,
+  isPlanPath, isSecurityCommand, isSourcePath, isTestPath, stripToExecutable,
 } from "./practices-rules.mjs";
 
 // The canonical edit names every adapter maps onto (codex apply_patch and
@@ -16,26 +16,24 @@ import {
 const EDIT_TOOLS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit"]);
 const PLAN_TOOLS = new Set(["ExitPlanMode", "TodoWrite"]);
 
-const PREFIX = /^[({\s]+/;
-const KEYWORD = /^(?:do|then|else)\s+/;
-const ENV_ASSIGN = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\\.|[^\s"'\\])*\s+)+/;
 const PR_CREATE = /^gh\s+pr\s+create(?=\s|$)/;
 const CODE_FILE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx|py|go|rs|rb|java|kt|php|cs|c|cpp|h|swift|sh)$/i;
 
 const subCommands = (cmd) => splitTopLevel(stripHeredocs(String(cmd ?? ""))).map((p) => p.trim()).filter(Boolean);
-const bare = (part) => part.replace(PREFIX, "").replace(KEYWORD, "").replace(ENV_ASSIGN, "").trim();
 
-// A comparable key for "the same check": the first check sub-command, without
-// env assignments, with its runner lower-cased and every argument from the
-// first path-like one onwards dropped.
-//   "pytest tests/a.py -q" and "pytest tests/ -x" -> "pytest"
-//   "FOO=1  npx   vitest run test/a.test.ts"      -> "npx vitest run"
+// A comparable key for "the same check": the first check sub-command, reduced
+// to its executable words (env assignments and the npx, uv run, python -m,
+// pnpm exec wrappers dropped, runner lower-cased) up to the first flag or
+// path-like argument. A narrower run of a check keys like the broader one:
+//   "pytest tests/a.py -q", "pytest -x tests/", "uv run pytest" -> "pytest"
+//   "FOO=1  npx   vitest run test/a.test.ts"                    -> "vitest run"
+//   "go test -run X ./pkg/..."                                  -> "go test"
 // A command that holds no check has no key ("").
 export function normalizeCommand(cmd) {
   const part = subCommands(cmd).find((p) => isCheckCommand(p));
   if (!part) return "";
-  const tokens = bare(part).split(/\s+/).filter(Boolean);
-  const at = tokens.findIndex((t, i) => i > 0 && (/[\\/]/.test(t) || CODE_FILE.test(t)));
+  const tokens = stripToExecutable(part).split(/\s+/).filter(Boolean);
+  const at = tokens.findIndex((t, i) => i > 0 && (t.startsWith("-") || /[\\/]/.test(t) || CODE_FILE.test(t)));
   const kept = at < 0 ? tokens : tokens.slice(0, at);
   if (kept.length) kept[0] = kept[0].toLowerCase();
   return kept.join(" ");
@@ -76,7 +74,7 @@ function readSession(session) {
           security: isSecurityCommand(part),
           diff: isDiffCommand(part),
           commit: isCommitCommand(part),
-          pr: PR_CREATE.test(bare(part)),
+          pr: PR_CREATE.test(stripToExecutable(part)),
         });
       }
     }

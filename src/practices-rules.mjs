@@ -66,14 +66,20 @@ export const isPlanPath = (path) => anyMatch(PLAN_PATH_PATTERNS, norm(path));
 const ENV_ASSIGN = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\\.|[^\s"'\\])*\s+)+/;
 const WRAPPER = /^(?:npx(?:\s+(?:-[-\w]+|--))*|bunx|pnpm\s+(?:exec|dlx)|npm\s+exec(?:\s+--)?|uv\s+run(?:\s+--?[-\w]+)*|poetry\s+run|pipenv\s+run|python3?\s+-m|py\s+-m)\s+/;
 
-// The executable position of each top-level sub-command: openers, control-flow
-// keywords, env assignments and runner prefixes (npx, uv run, python -m,
-// pnpm exec) are transparent; arguments never match.
+// One top-level sub-command reduced to its executable position: openers,
+// control-flow keywords, env assignments and runner prefixes (npx, uv run,
+// python -m, pnpm exec) are removed.
+export function stripToExecutable(raw) {
+  let part = raw.trim().replace(/^[({\s]+/, "").replace(/^(?:do|then|else)\s+/, "").replace(ENV_ASSIGN, "").replace(/[)}\s]+$/, "");
+  for (let i = 0; i < 3 && WRAPPER.test(part); i++) part = part.replace(WRAPPER, "");
+  return part;
+}
+
+// The executable position of each top-level sub-command; arguments never match.
 function executables(cmd) {
   const out = [];
   for (const raw of splitTopLevel(stripHeredocs(String(cmd ?? "")))) {
-    let part = raw.trim().replace(/^[({\s]+/, "").replace(/^(?:do|then|else)\s+/, "").replace(ENV_ASSIGN, "").replace(/[)}\s]+$/, "");
-    for (let i = 0; i < 3 && WRAPPER.test(part); i++) part = part.replace(WRAPPER, "");
+    const part = stripToExecutable(raw);
     if (part) out.push(part);
   }
   return out;

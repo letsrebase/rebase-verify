@@ -29,12 +29,20 @@ function session(source, events, { cwd = "/h/p/x", ts = "2026-05-01T10:00:00.000
 const seenOf = (events, id, source = "claude-code") => sessionFacts(session(source, events)).seen[id];
 const denomOf = (events, id, source = "claude-code") => sessionFacts(session(source, events)).denom[id];
 
-test("normalizeCommand", () => {
+test("normalizeCommand keeps the executable words up to the first flag or path", () => {
   assert.equal(normalizeCommand("pytest tests/a.py -q"), "pytest");
   assert.equal(normalizeCommand("pytest"), "pytest");
   assert.equal(normalizeCommand("pytest tests/ -x"), "pytest");
-  assert.equal(normalizeCommand("FOO=1  npx   vitest run test/a.test.ts"), "npx vitest run");
+  assert.equal(normalizeCommand("pytest -x tests/"), "pytest");
+  assert.equal(normalizeCommand("pytest -q"), "pytest");
+  assert.equal(normalizeCommand("uv run pytest"), "pytest");
+  assert.equal(normalizeCommand("python -m pytest tests/a.py"), "pytest");
+  assert.equal(normalizeCommand("FOO=1  npx   vitest run test/a.test.ts"), "vitest run");
+  assert.equal(normalizeCommand("npx vitest run --reporter=dot"), "vitest run");
+  assert.equal(normalizeCommand("pnpm exec vitest run"), "vitest run");
   assert.equal(normalizeCommand("cd x && go test ./pkg/..."), "go test");
+  assert.equal(normalizeCommand("go test -run X ./..."), "go test");
+  assert.equal(normalizeCommand("npm run test -- --watch"), "npm run test");
   assert.equal(normalizeCommand("ls -la"), "");
 });
 
@@ -69,6 +77,9 @@ test("failure_reproduced_before_fix", () => {
   const s = [bash("pytest tests/a.py", { err: true }), edit("src/a.py"), bash("pytest", { err: false })];
   assert.equal(seenOf(s, "failure_reproduced_before_fix"), true);
   assert.equal(seenOf([bash("pytest", { err: true }), bash("pytest", { err: false })], "failure_reproduced_before_fix"), false);
+  // A narrower or wrapped run and the broader form are the same command.
+  assert.equal(seenOf([bash("pytest -x tests/a.py", { err: true }), edit("src/a.py"), bash("uv run pytest", { err: false })], "failure_reproduced_before_fix"), true);
+  assert.equal(seenOf([bash("go test -run X ./pkg/...", { err: true }), edit("a.go"), bash("go test ./...", { err: false })], "failure_reproduced_before_fix"), true);
   // A different command succeeding after the edit is not the same failure.
   assert.equal(seenOf([bash("pytest", { err: true }), edit("src/a.py"), bash("ruff check .", { err: false })], "failure_reproduced_before_fix"), false);
   // Still failing after the edit is not a reproduction followed by a fix.
