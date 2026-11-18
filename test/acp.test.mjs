@@ -335,14 +335,49 @@ test("renew refuses to start over after a tool event, and keeps refusing", () =>
     assert.equal(created.length, 1, "no new session was opened");
   }));
 
-test("updates for a session that is not the current one add no text and trip nothing", () =>
-  run({ FAKE_STRAY: "1", FAKE_ANSWER: "real" }, null, {}, async (a, { events }) => {
-    const r = await a.prompt("x", {});
-    assert.equal(r.text, "real");
+test("text from a session that is not the current one is dropped", () =>
+  run({ FAKE_STRAY: "text", FAKE_ANSWER: "real" }, null, {}, async (a) => {
+    assert.equal((await a.prompt("x", {})).text, "real");
     await a.renew();
     assert.equal((await a.prompt("y", {})).text, "real");
-    assert.ok(!events.some((e) => e.kind === "tool_call" || e.kind === "tool-tripped"));
   }));
+
+test("a tool call from any session trips, in a turn and outside one", async () => {
+  await run({ FAKE_STRAY: "tool" }, null, {}, async (a) => {
+    await assert.rejects(a.prompt("x", {}), (e) => e instanceof ToolUseError && /Stray tool/.test(e.message));
+  });
+  // an old session that was not closed emits a tool_call after renew(): the next prompt refuses
+  await run({ FAKE_OLD_TOOL: "1" }, null, {}, async (a, { logFile }) => {
+    assert.equal((await a.prompt("x", {})).text, "ok");
+    await a.renew();
+    await assert.rejects(a.prompt("y", {}), (e) => e instanceof ToolUseError && /Old tool/.test(e.message));
+    const sent = readFileSync(logFile, "utf8").split("\n").filter((l) => l.includes('"session/prompt"') && l.includes('"dir":"out"'));
+    assert.equal(sent.length, 1, "the second prompt was never sent");
+  });
+});
+
+test("a spec mode is set after every session/new, as a config option or with set_mode", async () => {
+  const afterNew = (logFile) => {
+    const out = readFileSync(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((l) => l.dir === "out" && l.msg?.method);
+    const groups = [];
+    for (const { msg } of out) {
+      if (msg.method === "session/new") groups.push([]);
+      else if (groups.length && msg.method !== "session/prompt") groups.at(-1).push([msg.method, msg.params?.configId ?? null, msg.params?.value ?? msg.params?.modeId ?? null]);
+    }
+    return groups;
+  };
+  // the agent offers a mode option
+  const withOption = { FAKE_MODES: "ask,read-only" };
+  await run(withOption, spec(withOption, { mode: "read-only" }), {}, async (a, { logFile }) => {
+    await a.renew();
+    assert.deepEqual(afterNew(logFile), [[["session/set_config_option", "mode", "read-only"]], [["session/set_config_option", "mode", "read-only"]]]);
+  });
+  // the agent offers none: session/set_mode
+  await run({}, spec({}, { mode: "read-only" }), {}, async (a, { logFile }) => {
+    await a.renew();
+    assert.deepEqual(afterNew(logFile), [[["session/set_mode", null, "read-only"]], [["session/set_mode", null, "read-only"]]]);
+  });
+});
 
 test("renew closes the previous session first when the agent advertises it, and survives a failing close", async () => {
   const sentMethods = (logFile) =>

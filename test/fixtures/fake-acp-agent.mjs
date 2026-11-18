@@ -18,7 +18,8 @@
 //   FAKE_PROMPT_LOG  path: append one JSON line per prompt text
 //   FAKE_TURN_LOG    path: append one JSON line {sessionId, model, mode} per prompt
 //   FAKE_CLOSE    "1" | "error": advertise sessionCapabilities.close and answer session/close (or fail it)
-//   FAKE_STRAY    before each answer, send a tool_call and a text chunk for a session id that is not the prompt's
+//   FAKE_STRAY    "text" | "tool": before each answer, send a text chunk (or a tool_call) for a session id that is not the prompt's
+//   FAKE_OLD_TOOL on every session/new after the first, an earlier session emits a tool_call before the answer
 // Every session/new opens a fresh session (its own id, default model and mode).
 import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
@@ -85,8 +86,10 @@ const app = acp.agent({ name: "fake-acp-agent" })
     return INIT;
   })
   .onRequest("authenticate", async () => ({}))
-  .onRequest("session/new", async ({ params }) => {
+  .onRequest("session/new", async ({ params, client }) => {
     state.params = params;
+    if (env.FAKE_OLD_TOOL && state.sessions >= 1)
+      await client.notify("session/update", { sessionId: `s${state.sessions}`, update: { sessionUpdate: "tool_call", toolCallId: `old-${state.sessions}`, title: "Old tool", kind: "execute", status: "pending" } });
     if (env.FAKE_AUTH === "new") throw new acp.RequestError(-32000, "Authentication required");
     state.model = models[0] ?? null;
     state.mode = modes[0] ?? null;
@@ -113,10 +116,10 @@ const app = acp.agent({ name: "fake-acp-agent" })
     const update = (u) => client.notify("session/update", { sessionId: params.sessionId, update: u });
     const promptText = params.prompt.map((b) => b.text ?? "").join("");
     if (env.FAKE_TURN_LOG) appendFileSync(env.FAKE_TURN_LOG, JSON.stringify({ sessionId: params.sessionId, model: state.model, mode: state.mode }) + "\n");
-    if (env.FAKE_STRAY) {
+    if (env.FAKE_STRAY === "tool")
       await client.notify("session/update", { sessionId: "stray", update: { sessionUpdate: "tool_call", toolCallId: "stray-t", title: "Stray tool", kind: "execute", status: "pending" } });
+    if (env.FAKE_STRAY === "text")
       await client.notify("session/update", { sessionId: "stray", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "STRAY" } } });
-    }
     if (env.FAKE_PROMPT_LOG) appendFileSync(env.FAKE_PROMPT_LOG, JSON.stringify(promptText) + "\n");
     if (env.FAKE_EXIT === "prompt") {
       process.stderr.write("boom: died mid-turn\n");

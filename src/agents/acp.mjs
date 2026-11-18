@@ -219,12 +219,11 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
         return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
       })
       .onNotification("session/update", ({ params }) => {
-        // an update from a session that is not the current one (an earlier one, once renewed) counts for nothing
-        if (sessionId !== null && params.sessionId !== sessionId) return;
         const u = params.update;
         emit({ ...u, kind: u.sessionUpdate });
-        if (turn && u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text") turn.text += u.content.text;
-        // a tool_call, or an update for a tool call we never saw, is a tool in use
+        // text counts only from the current session: an earlier one (once renewed) adds nothing
+        if (turn && u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text" && (sessionId === null || params.sessionId === sessionId)) turn.text += u.content.text;
+        // a tool_call, or an update for a tool call we never saw, is a tool in use, whatever session names it
         if (u.sessionUpdate === "tool_call") {
           seenTools.add(u.toolCallId);
           trip(u.title || u.kind || "tool");
