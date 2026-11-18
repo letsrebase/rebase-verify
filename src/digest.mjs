@@ -22,10 +22,10 @@ const RESEARCH = new Set(["Read", "Grep", "Glob", "WebSearch", "WebFetch"]);
 // the scratch ROOTS (/tmp, /var/folders, with the macOS /private alias) —
 // matching anywhere in the path silently dropped real projects under
 // directories merely named tmp/ or private/ (e.g. ~/tmp/scratchpad-app).
-const isEphemeral = (cwd) => /^\/(?:private\/)?(?:tmp|var\/folders)\//.test(cwd);
+export const isEphemeral = (cwd) => /^\/(?:private\/)?(?:tmp|var\/folders)\//.test(cwd);
 
 // Cluster sessions by product: the repo segment of the working dir.
-function repoKey(cwd) {
+export function repoKey(cwd) {
   const m = cwd.match(/\/(?:Github|github|repos?|Projects|Desktop|src|code|dev|work)\/([^/]+)/);
   if (m) return m[1];
   const parts = cwd.split("/").filter((p) => p && p !== "⟨user⟩" && p !== "Users");
