@@ -202,7 +202,7 @@ export const CODE_PRACTICES = [
 
 // Adapters whose logs cannot show a practice are left out of its denominator,
 // never counted as "not seen". Cursor reads an absent failure flag as success.
-export const ADAPTERS_WITHOUT = { failure_reproduced_before_fix: ["pi", "cursor"] };
+export const ADAPTERS_WITHOUT = { failure_reproduced_before_fix: ["pi", "omp", "cursor"] };
 
 const sources = (patterns) => patterns.map(({ re }) => re.source);
 

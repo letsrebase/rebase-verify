@@ -95,7 +95,7 @@ test("failure_reproduced_before_fix", () => {
 });
 
 test("pi and cursor sessions are not in the failure denominator, claude-code and codex are", () => {
-  for (const src of ["pi", "cursor"]) assert.equal(denomOf([bash("pytest", { err: true })], "failure_reproduced_before_fix", src), false);
+  for (const src of ["pi", "omp", "cursor"]) assert.equal(denomOf([bash("pytest", { err: true })], "failure_reproduced_before_fix", src), false);
   for (const src of ["claude-code", "codex", "opencode", "kimi"]) assert.equal(denomOf([bash("pytest", { err: true })], "failure_reproduced_before_fix", src), true);
   // An unknown source keeps every denominator its fields allow.
   const noSource = session("x", [bash("pytest", { err: true })]);
