@@ -1,0 +1,256 @@
+// Drive the person's own coding agent over ACP (JSON-RPC over stdio) for one
+// text-in, text-out job. The agent runs in a fresh empty dir, with a minimal
+// environment, no client capabilities (no fs, no terminal), and a tripwire:
+// any tool call cancels the turn and fails it.
+import { spawn, spawnSync } from "node:child_process";
+import { appendFileSync, mkdirSync, mkdtempSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { Readable, Writable } from "node:stream";
+import * as acp from "@agentclientprotocol/sdk";
+import { AGENT_RUN_MARKER } from "../agent-run.mjs";
+
+export class ToolUseError extends Error {
+  constructor(tool) {
+    super(`the agent tried to use a tool (${tool}); tools are off for this run`);
+    this.name = "ToolUseError";
+  }
+}
+export class AgentAuthError extends Error {
+  constructor(detail) {
+    super(`the agent is not logged in${detail ? `: ${detail}` : ""}`);
+    this.name = "AgentAuthError";
+  }
+}
+export class AgentStartError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "AgentStartError";
+  }
+}
+export class ModelNotOfferedError extends Error {
+  constructor(id) {
+    super(`the agent does not offer model "${id}"`);
+    this.name = "ModelNotOfferedError";
+  }
+}
+
+const BASE_ENV = new Set(
+  [
+    "PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TMPDIR", "TEMP", "TMP", "SystemRoot", "LANG",
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+    // .cmd shims (npx) need these on Windows
+    ...(process.platform === "win32" ? ["COMSPEC", "PATHEXT"] : []),
+  ].map((n) => n.toUpperCase()),
+);
+const isBaseName = (n) => {
+  const u = n.toUpperCase();
+  return BASE_ENV.has(u) || u.startsWith("LC_") || u.startsWith("XDG_");
+};
+
+export function childEnv(extraNames = [], source = process.env) {
+  const extra = new Set(extraNames.map((n) => n.toUpperCase()));
+  const env = {};
+  for (const [k, v] of Object.entries(source)) {
+    if (v !== undefined && (isBaseName(k) || extra.has(k.toUpperCase()))) env[k] = v;
+  }
+  return env;
+}
+
+const abortError = () => Object.assign(new Error("aborted"), { name: "AbortError" });
+const isAuthError = (e) =>
+  e?.code === -32000 || (e?.code === -32603 && /no model selected/i.test(JSON.stringify(e.data ?? "") + (e.message ?? "")));
+
+function flattenOptions(opts = []) {
+  return opts.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+}
+const configEntry = (configOptions, category) => (configOptions ?? []).find((o) => o?.category === category);
+
+export async function startAgent(spec, { onEvent = () => {}, logFile, signal } = {}) {
+  if (signal?.aborted) throw abortError();
+  const cwd = mkdtempSync(join(tmpdir(), AGENT_RUN_MARKER));
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  const log = (dir, extra) => {
+    if (logFile) appendFileSync(logFile, JSON.stringify({ t: Date.now(), dir, ...extra }) + "\n");
+  };
+  const emit = (e) => {
+    try {
+      onEvent(e);
+    } catch {
+      // a broken observer never breaks the run
+    }
+  };
+
+  const viaShell = process.platform === "win32" && spec.command === "npx";
+  const child = spawn(spec.command, spec.args ?? [], {
+    cwd,
+    env: childEnv(spec.env),
+    stdio: ["pipe", "pipe", "pipe"],
+    shell: viaShell,
+    windowsHide: true,
+  });
+  let stderrTail = "";
+  child.stderr.on("data", (d) => (stderrTail = (stderrTail + d).slice(-2000)));
+  child.stdin.on("error", () => {});
+  let exited = false;
+  const exitPromise = new Promise((resolve) => {
+    child.once("exit", () => ((exited = true), resolve()));
+    child.once("error", () => ((exited = true), resolve()));
+  });
+  let closed = false;
+  const dead = new Promise((_, reject) => {
+    child.once("error", (e) =>
+      reject(new AgentStartError(e.code === "ENOENT" ? `cannot start "${spec.command}": not found` : `cannot start "${spec.command}": ${e.message}`)),
+    );
+    child.once("exit", (code, sig) => {
+      if (!closed) reject(new AgentStartError(`the agent exited (${sig ?? code})${stderrTail.trim() ? `: ${stderrTail.trim().split("\n").pop()}` : ""}`));
+    });
+  });
+  dead.catch(() => {});
+
+  async function close() {
+    if (closed) return closeDone;
+    closed = true;
+    closeDone = (async () => {
+      try {
+        conn?.close();
+      } catch {}
+      if (!exited && child.pid) {
+        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+        else child.kill("SIGKILL");
+        child.kill();
+      }
+      await Promise.race([exitPromise, new Promise((r) => setTimeout(r, 10000).unref())]);
+      await rm(cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    })();
+    return closeDone;
+  }
+  let closeDone;
+  let conn;
+
+  // Wire log: every message in both directions; initialize/authenticate
+  // responses can carry account data, so only their method is kept.
+  const redactIds = new Map();
+  const base = acp.ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout));
+  const writer = base.writable.getWriter();
+  const stream = {
+    readable: base.readable.pipeThrough(
+      new TransformStream({
+        transform(msg, ctrl) {
+          if (msg && msg.id !== undefined && !msg.method && redactIds.has(msg.id)) {
+            log("in", { method: redactIds.get(msg.id), redacted: true });
+          } else log("in", { msg });
+          ctrl.enqueue(msg);
+        },
+      }),
+    ),
+    writable: new WritableStream({
+      write(msg) {
+        if (msg && msg.id !== undefined && (msg.method === "initialize" || msg.method === "authenticate")) redactIds.set(msg.id, msg.method);
+        log("out", { msg });
+        return writer.write(msg);
+      },
+      close: () => writer.close().catch(() => {}),
+      abort: (r) => writer.abort(r).catch(() => {}),
+    }),
+  };
+
+  let turn = null; // { text, tripped }
+  let sessionId = null;
+  const notifyCancel = () => conn.agent.notify("session/cancel", { sessionId }).catch(() => {});
+
+  const app = acp
+    .client({ name: "rebase-verify" })
+    .onRequest("session/request_permission", async ({ params }) => {
+      const reject = params.options?.find((o) => /^reject/.test(o.kind ?? ""));
+      emit({ kind: "permission-refused", toolCall: params.toolCall });
+      return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
+    })
+    .onNotification("session/update", ({ params }) => {
+      const u = params.update;
+      emit({ ...u, kind: u.sessionUpdate });
+      if (!turn) return;
+      if (u.sessionUpdate === "agent_message_chunk" && u.content?.type === "text") turn.text += u.content.text;
+      if (u.sessionUpdate === "tool_call" && !turn.tripped) {
+        turn.tripped = u.title || u.kind || "tool";
+        emit({ kind: "tool-tripped", tool: turn.tripped });
+        notifyCancel();
+      }
+    });
+  conn = app.connect(stream);
+  const call = (method, params) => Promise.race([conn.agent.request(method, params), dead]);
+  const onAbort = () => {
+    if (sessionId && !closed) notifyCancel();
+    close();
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    emit({ kind: "started", pid: child.pid, cwd });
+    await call("initialize", { protocolVersion: 1, clientInfo: { name: "rebase-verify", version: "0" }, clientCapabilities: {} });
+    const meta = { ...(spec.sessionMeta ?? {}) };
+    const params = { cwd, mcpServers: [], ...(spec.sessionParams ?? {}) };
+    if (spec.system && spec.systemPromptVia === "meta") meta.systemPrompt = spec.system;
+    if (spec.system && spec.systemPromptVia === "param")
+      params.systemPrompt = { mode: "append", content: [{ type: "text", text: spec.system }] };
+    if (Object.keys(meta).length) params._meta = meta;
+    let created;
+    try {
+      created = await call("session/new", params);
+    } catch (e) {
+      throw isAuthError(e) ? new AgentAuthError(e.message) : e;
+    }
+    sessionId = created.sessionId;
+
+    let configOptions = created.configOptions;
+    let modelEntry = configEntry(configOptions, "model");
+    let models = flattenOptions(modelEntry?.options).map((o) => ({ id: o.value, name: o.name ?? o.value }));
+    const session = {
+      models,
+      currentModel: modelEntry?.currentValue ?? null,
+      async setModel(id) {
+        if (!modelEntry || !models.some((m) => m.id === id)) throw new ModelNotOfferedError(id);
+        await call("session/set_config_option", { sessionId, configId: modelEntry.id, value: id });
+        session.currentModel = id;
+        emit({ kind: "model-set", model: id });
+      },
+      async prompt(text, { system } = {}) {
+        const body = spec.systemPromptVia === "inline" && system ? `${system}\n\n${text}` : text;
+        turn = { text: "", tripped: null };
+        const t = turn;
+        emit({ kind: "turn-start" });
+        try {
+          const res = await call("session/prompt", { sessionId, prompt: [{ type: "text", text: body }] });
+          emit({ kind: "turn-end", stopReason: res.stopReason });
+          if (t.tripped) throw new ToolUseError(t.tripped);
+          return { text: t.text, usage: res.usage ?? null, stopReason: res.stopReason };
+        } catch (e) {
+          if (e instanceof ToolUseError) throw e;
+          if (t.tripped) throw new ToolUseError(t.tripped);
+          if (signal?.aborted) {
+            await closeDone;
+            throw abortError();
+          }
+          throw isAuthError(e) ? new AgentAuthError(e.message) : e;
+        } finally {
+          turn = null;
+        }
+      },
+      cancel: () => notifyCancel(),
+      close,
+    };
+
+    if (spec.mode) {
+      const modeEntry = configEntry(configOptions, "mode");
+      if (modeEntry && flattenOptions(modeEntry.options).some((o) => o.value === spec.mode))
+        await call("session/set_config_option", { sessionId, configId: modeEntry.id, value: spec.mode });
+      else await call("session/set_mode", { sessionId, modeId: spec.mode });
+    }
+    return session;
+  } catch (e) {
+    await close();
+    if (signal?.aborted) throw abortError();
+    throw e;
+  }
+}
