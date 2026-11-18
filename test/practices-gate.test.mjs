@@ -17,6 +17,8 @@ import {
   recentEligible,
   claudeCliCall,
   stabilityOut,
+  assertOutsideRepo,
+  REPO_ROOT,
 } from "../scripts/practices-gate.mjs";
 import { MODEL_PRACTICE_CANDIDATES } from "../src/practices-rules.mjs";
 
@@ -286,15 +288,51 @@ test("claudeCliCall spawns claude from an empty temp cwd with the exact flags an
   assert.equal(seen[0].cmd, "claude");
   assert.deepEqual(seen[0].args, [
     "-p", "--model", "m-1", "--setting-sources", "", "--strict-mcp-config", "--tools", "",
-    "--system-prompt", "SYS", "--output-format", "json", "USER",
+    "--no-session-persistence", "--system-prompt", "SYS", "--output-format", "json", "USER",
   ]);
   assert.ok(seen[0].opts.cwd.startsWith(tmpdir()));
   assert.notEqual(seen[0].opts.cwd, process.cwd());
 });
 
-test("claudeCliCall throws on is_error and on a failed exit, with stderr", async () => {
+test("claudeCliCall throws on is_error with the result", async () => {
   const bad = claudeCliCall({ model: "m", run: async () => ({ stdout: JSON.stringify({ is_error: true, result: "nope" }), stderr: "" }) });
   await assert.rejects(() => bad({ system: "s", user: "u" }), /nope/);
-  const fail = claudeCliCall({ model: "m", run: async () => { throw Object.assign(new Error("exit 1"), { code: 1, stderr: "auth broke" }); } });
-  await assert.rejects(() => fail({ system: "s", user: "u" }), /auth broke/);
+});
+
+test("claudeCliCall failure text never carries the args: stderr, else the stdout result, plus the code", async () => {
+  const user = "PRIVATE-USER-TEXT";
+  const system = "PRIVATE-SYSTEM-TEXT";
+  const failing = (extra) => claudeCliCall({
+    model: "m",
+    run: async (cmd, args) => {
+      throw Object.assign(new Error(`Command failed: ${cmd} ${args.join(" ")}`), { code: 1, ...extra });
+    },
+  });
+  const withStderr = await failing({ stderr: "auth broke\n", stdout: "" })({ system, user }).catch((e) => e);
+  assert.match(withStderr.message, /auth broke/);
+  assert.match(withStderr.message, /exit 1/);
+  const withStdout = await failing({ stderr: "", stdout: JSON.stringify({ is_error: true, result: "rate limited" }) })({ system, user }).catch((e) => e);
+  assert.match(withStdout.message, /rate limited/);
+  const bare = await failing({ stderr: "", stdout: "not json" })({ system, user }).catch((e) => e);
+  for (const e of [withStderr, withStdout, bare]) {
+    assert.ok(!e.message.includes(user) && !e.message.includes(system), e.message);
+    assert.ok(!e.message.includes("Command failed"));
+  }
+});
+
+test("claudeCliCall passes a 10 minute timeout and rejects an answer with no string result", async () => {
+  const seen = [];
+  const mk = (doc) => claudeCliCall({ model: "m", run: async (c, a, o) => { seen.push(o); return { stdout: JSON.stringify(doc), stderr: "" }; } });
+  await assert.rejects(() => mk({ is_error: false })({ system: "s", user: "u" }), /no result/);
+  await assert.rejects(() => mk({ is_error: false, result: 5 })({ system: "s", user: "u" }), /no result/);
+  assert.equal(seen[0].timeout, 600000);
+  await assert.rejects(() => claudeCliCall({ run: async () => ({ stdout: "oops", stderr: "" }) })({ system: "s", user: "u" }), /not JSON/);
+});
+
+test("assertOutsideRepo refuses a path inside the repository and allows one outside", () => {
+  assert.throws(() => assertOutsideRepo(join(REPO_ROOT, "out", "gate.json")), /outside the repository/);
+  assert.throws(() => assertOutsideRepo(join(REPO_ROOT, "gate.json")), /outside the repository/);
+  assert.throws(() => assertOutsideRepo(join(REPO_ROOT, "test", "..", "x.json")), /outside the repository/);
+  assert.equal(assertOutsideRepo(join(tmpdir(), "gate.json")), join(tmpdir(), "gate.json"));
+  assert.equal(assertOutsideRepo(join(REPO_ROOT, "..", "gate.json")), join(REPO_ROOT, "..", "gate.json"));
 });

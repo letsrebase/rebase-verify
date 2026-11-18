@@ -10,10 +10,10 @@
 // The real sessions are read in memory and never written; the stability output
 // holds booleans keyed by opaque ids and numbers, no message, path or product.
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { DEFAULT_TZ } from "../src/days.mjs";
 import { eachSession } from "../src/practices.mjs";
@@ -30,6 +30,7 @@ export const STABILITY_SESSIONS = 40;
 export const SHUFFLE_SEED = 20261118;
 export const DEFAULT_DIR = "test/fixtures/practices-reference";
 
+export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const IDS = MODEL_PRACTICE_CANDIDATES.map((p) => p.id);
 const execFileAsync = promisify(execFile);
 
@@ -186,28 +187,68 @@ export async function runStability({ sessions, call }) {
 
 // ---- the model transport -----------------------------------------------------
 
-// The person's own model through the Claude Code CLI, from a fresh empty cwd.
-export function claudeCliCall({ model = MODEL, run = execFileAsync } = {}) {
+export const CLAUDE_TIMEOUT_MS = 10 * 60 * 1000;
+
+// The error text of a failed `claude` run. Never e.message: for execFile it is
+// "Command failed: <file> <all args>", and the args hold the prompt and the
+// person's messages. Only stderr, else the parsed stdout result, plus the code.
+function claudeFailure(e) {
+  const stderr = String(e?.stderr ?? "").trim();
+  let detail = stderr;
+  if (!detail) {
+    try {
+      const r = JSON.parse(String(e?.stdout ?? ""))?.result;
+      if (typeof r === "string") detail = r.trim();
+    } catch {
+      // stdout is not JSON: nothing safe to add
+    }
+  }
+  const code = e?.code ?? e?.status ?? "unknown";
+  return `claude CLI failed (exit ${code})${detail ? `: ${detail}` : ""}`;
+}
+
+// The person's own model through the Claude Code CLI, from a fresh empty cwd,
+// without saving a transcript of the payload under ~/.claude/projects.
+export function claudeCliCall({ model = MODEL, run = execFileAsync, timeout = CLAUDE_TIMEOUT_MS } = {}) {
   return async ({ system, user }) => {
     const cwd = mkdtempSync(join(tmpdir(), "practices-gate-"));
     try {
       const args = [
         "-p", "--model", model, "--setting-sources", "", "--strict-mcp-config", "--tools", "",
-        "--system-prompt", system, "--output-format", "json", user,
+        "--no-session-persistence", "--system-prompt", system, "--output-format", "json", user,
       ];
       let stdout;
       try {
-        ({ stdout } = await run("claude", args, { cwd, maxBuffer: 64 * 1024 * 1024 }));
+        ({ stdout } = await run("claude", args, { cwd, timeout, maxBuffer: 64 * 1024 * 1024 }));
       } catch (e) {
-        throw new Error(`claude CLI failed: ${String(e.stderr || e.message).trim()}`);
+        throw new Error(claudeFailure(e));
       }
-      const doc = JSON.parse(stdout);
-      if (doc.is_error) throw new Error(`claude CLI error: ${String(doc.result ?? "")}`);
-      return String(doc.result);
+      let doc;
+      try {
+        doc = JSON.parse(stdout);
+      } catch {
+        throw new Error("claude CLI answered something that is not JSON");
+      }
+      if (doc?.is_error) throw new Error(`claude CLI error: ${String(doc.result ?? "")}`);
+      if (typeof doc?.result !== "string") throw new Error("claude CLI answered no result string");
+      return doc.result;
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
   };
+}
+
+// An --out inside the repository would put descriptive ids or answers under git.
+export function assertOutsideRepo(file, root = REPO_ROOT) {
+  const abs = resolve(file);
+  const real = (p) => { try { return realpathSync(p); } catch { return p; } };
+  const inside = (p, r) => {
+    const rel = relative(r, p);
+    return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+  };
+  const viaParent = join(real(dirname(abs)), basename(abs));
+  if (inside(abs, resolve(root)) || inside(viaParent, real(root))) throw new Error("--out must be outside the repository");
+  return abs;
 }
 
 // ---- CLI ---------------------------------------------------------------------
@@ -242,6 +283,7 @@ async function main(argv) {
   const flags = (n) => argv.flatMap((a, i) => (a === `--${n}` && argv[i + 1] ? [argv[i + 1]] : []));
   const has = (n) => argv.includes(`--${n}`);
   const out = flag("out");
+  if (out) assertOutsideRepo(out);
 
   if (sub === "stability") {
     const root = flag("root", join(homedir(), ".claude", "projects"));
