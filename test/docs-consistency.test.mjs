@@ -201,3 +201,17 @@ test("slash command has a model-practices step naming both files and who reads w
   assert.ok(command.includes("practices-detail.json"));
   assert.ok(/60 sessions/.test(command) && /12 messages/.test(command));
 });
+
+test("slash command classifies before the first finalize, so the review shows every row", () => {
+  const at = (re) => command.search(re);
+  const classify = at(/\*\*Classify the model practices/);
+  const finalize = at(/\*\*Run finalize\.\*\*/);
+  const review = at(/\*\*Show `out\/profile\.md`\*\*/);
+  assert.ok(classify > 0 && classify < finalize && finalize < review);
+});
+
+test("texts say sub-agent briefs, task notifications and compaction summaries are not read", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(/sub-agent briefs, task notifications/.test(text), `${name} does not say what is skipped`);
+  }
+});
