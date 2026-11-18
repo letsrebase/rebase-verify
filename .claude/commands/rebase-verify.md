@@ -66,6 +66,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
      --narrative-file out/narrative.json
    ```
    This writes `out/candidate.json` (for agents) and `out/profile.md` (for humans).
+   The profile now also carries counts of work practices (seen in N of M sessions, counted by code from tool calls and file paths, never commands, paths or file names). Tell the candidate they can read them under "How the work is done" in `out/profile.md`, and that the README section "Work practices" defines each one.
 
 6. **Show `out/profile.md`** to the candidate, then ask the four review questions below **ONE AT A TIME, in order**. Wait for an answer before moving to the next. **Do NOT enumerate them in a single block**: the goal is a conversation, not a survey.
 

@@ -159,3 +159,29 @@ test("PRIVACY §2 and README disclose the technology-usage block and its bands",
   }
   assert.ok(/empirical/i.test(readme), "README must say the thresholds are empirical");
 });
+
+// --- work practices texts (REB-1143) -----------------------------------------
+// The README names every practice with its published definition, PRIVACY
+// discloses that the profile carries the counts, and none of the three user
+// texts uses an em dash.
+const practices = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+
+test("README lists every practice id with the first sentence of its definition", () => {
+  assert.match(readme, /^## Work practices$/m);
+  for (const p of practices.practices) {
+    assert.ok(readme.includes(p.id), `README lacks ${p.id}`);
+    const first = p.definition.split(/(?<=\.)\s|;\s/)[0].replace(/\.$/, "");
+    assert.ok(readme.includes(first), `README lacks the definition of ${p.id}`);
+  }
+});
+
+test("PRIVACY discloses the practices counts", () => {
+  assert.match(privacy, /practices/i);
+  assert.match(privacy, /counts/i);
+});
+
+test("the three user texts use no em dash", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(!text.includes("\u2014"), `${name} contains an em dash`);
+  }
+});
