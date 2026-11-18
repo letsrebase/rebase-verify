@@ -187,7 +187,7 @@ function writeProfile(out, profile) {
 // opaque ids back to real sessions and is never sent.
 function writePracticesInput(out, parsed, tz) {
   // A stale sample from an earlier run must never be read by finalize.
-  for (const f of ["practices-input.json", "practices-sample.json", "practices-detail.json"]) rmSync(join(out, f), { force: true });
+  for (const f of ["practices-input.json", "practices-sample.json", "practices-detail.json", "practices.json"]) rmSync(join(out, f), { force: true });
   const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
   const practices = (shared.practices ?? []).filter((p) => p.method === "model");
   const files = practicesFiles(parsed, { tz, practices });
