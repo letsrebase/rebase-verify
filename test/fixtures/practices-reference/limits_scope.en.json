@@ -1,0 +1,281 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "limits_scope",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "limits_scope.en.p01",
+      "kind": "positive",
+      "messages": [
+        "Add search to the app.",
+        "Only title search for now, skip filters and sorting, that's a later ticket."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p02",
+      "kind": "positive",
+      "messages": [
+        "Convert the whole settings area to the new components.",
+        "Actually just do the profile tab today. The rest we'll do next sprint."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p03",
+      "kind": "positive",
+      "messages": [
+        "Don't touch the payment code in this PR, only the shipping form. Payment gets its own change.",
+        "Keep the diff small."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p04",
+      "kind": "positive",
+      "messages": [
+        "Fix these 12 lint warnings.",
+        "Skip the ones in vendor/ and generated files, out of scope."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p05",
+      "kind": "positive",
+      "messages": [
+        "We'll do the admin UI later. For now only the API endpoints, no frontend.",
+        "Start with GET and POST."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p06",
+      "kind": "positive",
+      "messages": [
+        "Support all five languages eventually, but ship English and Italian first. Leave the others as stubs.",
+        "Don't translate the rest now."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p07",
+      "kind": "positive",
+      "messages": [
+        "Split this into two steps: first only the database change with no behaviour change, then the feature in a separate PR.",
+        "Start with the first."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.p08",
+      "kind": "positive",
+      "messages": [
+        "Leave error handling for the second pass, I just want the happy path working today.",
+        "No tests yet either."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Do everything in the list.",
+        "All of it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "You suggested skipping the mobile layout for now.",
+        "Fine, ok."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Implement the feature.",
+        "Keep it simple."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Refactor the auth module.",
+        "Take your time and do it properly."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "That's a bigger change than I thought.",
+        "Hm."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Fix the bug in checkout.",
+        "Don't break the other pages."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Add the filter component.",
+        "Make it small and tidy."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "limits_scope.en.p09",
+      "kind": "positive",
+      "messages": [
+        "You've done the users and orders endpoints, good.",
+        "I know the list has 40 but stop here. Anything under /admin gets handled in January with the new auth.",
+        "Open the PR with just these two."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": true
+      }
+    },
+    {
+      "id": "limits_scope.en.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Do the three reports first.",
+        "Then the dashboard.",
+        "Then the emails."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

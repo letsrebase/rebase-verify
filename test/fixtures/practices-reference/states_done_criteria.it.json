@@ -1,0 +1,332 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "states_done_criteria",
+  "lang": "it",
+  "sessions": [
+    {
+      "id": "states_done_criteria.it.p01",
+      "kind": "positive",
+      "messages": [
+        "Aggiungi un pulsante di esportazione CSV alla pagina report.",
+        "È finito quando il file si apre in Excel con le stesse colonne della tabella, date in formato ISO, e un report da 10k righe si scarica in meno di 5 secondi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p02",
+      "kind": "positive",
+      "messages": [
+        "Sistema il test di login instabile.",
+        "Lo considero risolto quando passa 50 volte di fila in CI senza retry."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p03",
+      "kind": "positive",
+      "messages": [
+        "Il form di registrazione deve rifiutare email senza dominio e mostrare l'errore sotto il campo, non in un toast. I test esistenti devono continuare a passare.",
+        "Aggiungi i test per entrambi i casi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p04",
+      "kind": "positive",
+      "messages": [
+        "Migra la tabella utenti al nuovo schema.",
+        "Controllo finale: i conteggi di righe coincidono prima e dopo, nessun null nella nuova colonna, e lo script di rollback ripristina l'originale."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p05",
+      "kind": "positive",
+      "messages": [
+        "Comportamento atteso: con il carrello vuoto il checkout reindirizza a /cart e non viene creato nessun ordine.",
+        "Coprilo con un test."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p06",
+      "kind": "positive",
+      "messages": [
+        "Rifattorizza il parser.",
+        "Accettazione: tutte le fixture attuali danno output identico byte per byte e il benchmark non peggiora più del 5%."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p07",
+      "kind": "positive",
+      "messages": [
+        "Il toggle dark mode deve restare dopo il ricaricamento e rispettare l'impostazione di sistema alla prima visita.",
+        "Si verifica ricaricando in una finestra privata con il sistema in scuro."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p08",
+      "kind": "positive",
+      "messages": [
+        "Aggiorna la documentazione della CLI.",
+        "Ogni flag di --help deve comparire nella doc, confronterò le due liste."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Rendi la ricerca più veloce.",
+        "Basta che funzioni bene."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Sistema il bug per cui i caricamenti falliscono.",
+        "Assicurati che funzioni."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Riordina la pagina impostazioni.",
+        "Voglio che sia bella e moderna."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi la paginazione alla lista.",
+        "Deve essere intuitiva per gli utenti."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi un retry al sender dei webhook.",
+        "Secondo te tre tentativi bastano?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Perché la build è rossa?",
+        "ok, vai e sistemala"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Implementa il flusso di invito.",
+        "Dimmi quando hai finito e do un'occhiata."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n08",
+      "kind": "near_miss",
+      "messages": [
+        "La pagina è lenta, velocizzala.",
+        "Almeno meglio di adesso."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p09",
+      "kind": "positive",
+      "messages": [
+        "Bene, la cache c'è. Ora ti dico come la giudico.",
+        "Una seconda richiesta per la stessa categoria non deve toccare il database, lo guardo dal log delle query, e dopo la modifica di un prodotto la lista deve mostrare il nuovo prezzo entro un minuto.",
+        "Scrivi un test per la parte di invalidazione."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.p10",
+      "kind": "positive",
+      "messages": [
+        "La pagina ora carica ma prima avevi detto che era sistemata e non lo era.",
+        "Stavolta dimostralo: esegui il checkout con un coupon e con un utente ospite, e mostrami che il totale dell'ordine coincide con il carrello in tutti e tre i casi.",
+        "Per me è questo il significato di sistemata."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n09",
+      "kind": "near_miss",
+      "messages": [
+        "I test ora passano.",
+        "Ma la pagina a me sembra ancora strana.",
+        "Fai in modo che sia giusta.",
+        "Sai, come dovrebbe essere."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.it.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi la validazione degli input alla registrazione.",
+        "Controlla che funzioni con input strani.",
+        "Prova nomi insoliti e roba così."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

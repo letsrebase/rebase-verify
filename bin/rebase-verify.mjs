@@ -6,7 +6,8 @@
 //
 //   rebase-verify                     # = rebase-verify generate
 //   rebase-verify generate            # build out/profile.md + out/candidate.json locally
-//   rebase-verify prepare             # only emit out/narrative-input.json (no narrative)
+//   rebase-verify prepare             # only emit out/narrative-input.json (no narrative), plus
+//                                     # out/practices-input.json and out/practices-sample.json
 //   rebase-verify finalize            # finalize using --narrative-file out/narrative.json
 //   rebase-verify submit              # sign in in the browser, then send out/candidate.json to rebase
 //
@@ -32,14 +33,16 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync, mkdirSync, rmSync } from "node:fs";
 import { readClaudeCode } from "../src/adapters/claude-code.mjs";
 import { readAllSources } from "../src/sources.mjs";
 import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
+import { practicesFiles } from "../src/practices-sample.mjs";
+import { runPracticesStep } from "../src/practices-llm.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
-import { generateNarrative } from "../src/profile-llm.mjs";
+import { anthropicCall, generateNarrative, warnApiKey } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
 import { resolveHub } from "../src/hub.mjs";
 import { submitProfile, buildPayload } from "../src/submit.mjs";
@@ -51,7 +54,7 @@ import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
 import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
-import { computeCodePractices, practicesBlock } from "../src/practices.mjs";
+import { computeCodePractices, mergeModelPractices, practicesBlock } from "../src/practices.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -106,7 +109,8 @@ try {
   process.exit(2);
 }
 
-// Every generated file (narrative-input.json, narrative.json, candidate.json,
+// Every generated file (narrative-input.json, narrative.json, practices-input.json,
+// practices-sample.json, practices.json, practices-detail.json, candidate.json,
 // profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
 const outDir = () => {
@@ -181,10 +185,32 @@ function writeProfile(out, profile) {
   console.log(`To send it to rebase when ready:  rebase-verify submit`);
 }
 
+// The model-classified practices: written only when some are published and
+// there is something to read. Both files stay local; the sample file maps the
+// opaque ids back to real sessions and is never sent.
+function writePracticesInput(out, parsed, tz) {
+  // A stale sample from an earlier run must never be read by finalize.
+  for (const f of ["practices-input.json", "practices-sample.json", "practices-detail.json", "practices.json"]) rmSync(join(out, f), { force: true });
+  const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+  const practices = (shared.practices ?? []).filter((p) => p.method === "model");
+  const files = practicesFiles(parsed, { tz, practices });
+  if (!files) return;
+  writeFileSync(join(out, "practices-input.json"), JSON.stringify(files.input, null, 2));
+  writeFileSync(join(out, "practices-sample.json"), JSON.stringify(files.sample, null, 2));
+  console.log(`Wrote ${OUT_DIR}/practices-input.json (${files.sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
+}
+
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\nrebase-verify generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: codePractices, sources } = await loadProfileInputs(out);
+  writePracticesInput(out, parsed, tzFlag);
+  const key = process.env.ANTHROPIC_API_KEY;
+  const step = await runPracticesStep(out, {
+    key, call: key ? anthropicCall(key) : null,
+    warn: () => warnApiKey("the person's own messages from the sampled sessions (already redacted)"),
+  });
+  const practices = step === "written" ? mergePracticesAnswers(out, codePractices) : codePractices;
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
@@ -231,6 +257,7 @@ async function cmdPrepare() {
   const out = outDir();
   console.log(`\nrebase-verify prepare\n`);
   const { parsed, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution } = await loadProfileInputs(out);
+  writePracticesInput(out, parsed, tzFlag);
   const { input } = await generateNarrative(selected, enrichments, {
     overrideFile: null,
     trajectory,
@@ -246,6 +273,31 @@ async function cmdPrepare() {
   console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  rebase-verify finalize`);
 }
 
+// The model's answers, when the person's model wrote out/practices.json: checked
+// against the sample file written at prepare (never resampled), then merged into
+// the block. A bad or unreadable file stops the step; nothing is saved.
+function mergePracticesAnswers(out, codeBlock) {
+  const answersFile = join(out, "practices.json");
+  if (!existsSync(answersFile)) return codeBlock;
+  const sampleFile = join(out, "practices-sample.json");
+  const fail = (msg) => { console.error(`${msg} Fix it, or delete ${OUT_DIR}/practices.json to leave the model practices out.`); process.exit(2); };
+  const read = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return undefined; } };
+  const sample = read(sampleFile);
+  if (!Array.isArray(sample)) fail(`Missing or unreadable ${sampleFile}: run rebase-verify prepare again.`);
+  const answers = read(answersFile);
+  if (answers === undefined) fail(`${answersFile} is not valid JSON.`);
+  const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+  const ids = (shared.practices ?? []).filter((p) => p.method === "model").map((p) => p.id);
+  try {
+    const { block, detail } = mergeModelPractices(codeBlock, answers, sample, ids, { tz: tzFlag });
+    writeFileSync(join(out, "practices-detail.json"), JSON.stringify(detail, null, 2));
+    console.log(`Merged the model's answers for ${sample.length} sessions (per-session detail in ${OUT_DIR}/practices-detail.json, local only).`);
+    return block;
+  } catch (e) {
+    return fail(`${answersFile}: ${e.message}.`);
+  }
+}
+
 async function cmdFinalize() {
   const out = outDir();
   console.log(`\nrebase-verify finalize\n`);
@@ -255,6 +307,7 @@ async function cmdFinalize() {
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  const merged = mergePracticesAnswers(out, practices);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -266,7 +319,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: merged, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }

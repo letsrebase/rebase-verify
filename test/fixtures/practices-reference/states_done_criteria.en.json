@@ -1,0 +1,332 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "states_done_criteria",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "states_done_criteria.en.p01",
+      "kind": "positive",
+      "messages": [
+        "Add a CSV export button to the report page.",
+        "It's done when the file opens in Excel with the same columns as the table, dates in ISO format, and a 10k-row report downloads in under 5 seconds."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p02",
+      "kind": "positive",
+      "messages": [
+        "Fix the flaky login test.",
+        "I'll consider it fixed when it passes 50 consecutive runs in CI without retries."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p03",
+      "kind": "positive",
+      "messages": [
+        "The signup form should reject emails without a domain and show the error under the field, not in a toast. Existing tests must still pass.",
+        "Add tests for both cases."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p04",
+      "kind": "positive",
+      "messages": [
+        "Migrate the users table to the new schema.",
+        "Check at the end: row counts match before and after, no null in the new column, and the rollback script restores the original."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p05",
+      "kind": "positive",
+      "messages": [
+        "Expected behaviour: when the cart is empty, checkout redirects to /cart and no order row is created. Make it so.",
+        "Cover it with a test."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p06",
+      "kind": "positive",
+      "messages": [
+        "Refactor the parser.",
+        "Acceptance: all current fixtures give byte-identical output, and the benchmark doesn't get slower than 5%."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p07",
+      "kind": "positive",
+      "messages": [
+        "The dark mode toggle must persist after reload and respect the system setting on first visit.",
+        "Verify by reloading in a private window with the OS set to dark."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p08",
+      "kind": "positive",
+      "messages": [
+        "Update the docs for the CLI.",
+        "Every flag in --help must appear in the docs, I'll diff the two lists."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Make the search faster.",
+        "Just make it work properly."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Fix the bug where uploads fail.",
+        "Make sure it works."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Clean up the settings page.",
+        "I want it to look good and feel modern."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Add pagination to the list.",
+        "Should be intuitive for users."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Add a retry to the webhook sender.",
+        "Do you think three attempts is enough?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Why is the build red?",
+        "ok go ahead and fix it"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Implement the invite flow.",
+        "Let me know when it's finished and I'll look."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n08",
+      "kind": "near_miss",
+      "messages": [
+        "The page is slow, speed it up.",
+        "Better than now at least."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p09",
+      "kind": "positive",
+      "messages": [
+        "Good, the cache is in. Now here's how I'll judge it.",
+        "A second request for the same category must not hit the database, I'll watch the query log, and after editing a product the list must show the new price within a minute.",
+        "Write a test for the invalidation part."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.p10",
+      "kind": "positive",
+      "messages": [
+        "The page loads now but you said it was fixed before and it wasn't.",
+        "This time prove it: run the checkout flow with a coupon and a guest user, and show me the order total matches the cart in all three cases.",
+        "That's what I mean by fixed."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": true,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n09",
+      "kind": "near_miss",
+      "messages": [
+        "The tests pass now.",
+        "But the page still looks off to me.",
+        "Make it look right.",
+        "You know, how it should be."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "states_done_criteria.en.n10",
+      "kind": "near_miss",
+      "messages": [
+        "Add input validation to the signup.",
+        "Check that it works with weird inputs.",
+        "Try some unusual names and stuff."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

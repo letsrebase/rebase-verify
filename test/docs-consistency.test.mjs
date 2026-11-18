@@ -194,3 +194,34 @@ test("the three user texts use no em dash", () => {
     assert.ok(!text.includes("\u2014"), `${name} contains an em dash`);
   }
 });
+
+test("slash command has a model-practices step naming both files and who reads what", () => {
+  assert.ok(command.includes("practices-input.json"));
+  assert.ok(command.includes("practices.json"));
+  assert.ok(command.includes("practices-detail.json"));
+  assert.ok(/60 sessions/.test(command) && /12 messages/.test(command));
+});
+
+test("slash command classifies before the first finalize, so the review shows every row", () => {
+  const at = (re) => command.search(re);
+  const classify = at(/\*\*Classify the model practices/);
+  const finalize = at(/\*\*Run finalize\.\*\*/);
+  const review = at(/\*\*Show `out\/profile\.md`\*\*/);
+  assert.ok(classify > 0 && classify < finalize && finalize < review);
+});
+
+test("texts say sub-agent briefs, task notifications and compaction summaries are not read", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(/sub-agent briefs, task notifications/.test(text), `${name} does not say what is skipped`);
+  }
+});
+
+test("the texts count four published model practices and none of them names the unpublished ones as classified", () => {
+  for (const [name, text] of [["README", readme], ["PRIVACY", privacy], ["rebase-verify.md", command]]) {
+    assert.ok(!/\bfive (model|classified)\b|\bFive are classified\b|\btwelve\b/.test(text), `${name} still says five or twelve`);
+  }
+  assert.ok(/eleven work practices: seven counted by code and four classified/.test(readme));
+  assert.ok(/eleven practices/.test(privacy) && /Four are classified/.test(privacy));
+  assert.ok(/four classified by their own model/.test(command));
+  assert.ok(!/- `raises_risks`:/.test(readme), "README lists raises_risks as classified");
+});

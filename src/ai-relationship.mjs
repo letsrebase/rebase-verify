@@ -15,7 +15,7 @@
 // Anti-leak: the same system-injected prompts (compaction, task-notifications)
 // excluded elsewhere are excluded here too.
 
-const SYSTEM_PROMPT_RE = /^(<task-notification>|Your task is to create a detailed summary of the conversation|This session is being continued from a previous conversation)/i;
+import { SYSTEM_PROMPT_RE } from "./system-text.mjs";
 
 const DIRECTING_PATTERNS = [
   /(^|\n)\s*\d+\.\s/, // numbered list item

@@ -21,7 +21,7 @@ claude
 > /rebase-verify
 ```
 
-The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents. Submission is a second step. You can keep the profile for yourself.
+The slash command reads your Claude Code history and lets your own Claude write a short profile about you. It asks nothing about who you are. Two files come out in `out/`: `profile.md` for humans, `candidate.json` for agents (plus working files described under "Work practices" and "Commands"). Submission is a second step. You can keep the profile for yourself.
 
 ```
 node bin/rebase-verify.mjs submit --yes
@@ -68,9 +68,11 @@ The profile also discloses its own coverage: a `sources` block records which log
 
 ## Work practices
 
-The profile also carries counts of seven work practices. They are counted by code from the tool calls and file paths your logs already contain. No model is involved and nothing new is read. Each one is shown as "seen in N of M sessions", with the number of products and months it spans. It is never a score, a percentage or a total, and nothing here says anything about tone, skill or character. You can read the counts in the "How the work is done" section of `out/profile.md` before you submit anything. That section only appears when at least one practice could be counted in your sessions.
+The profile also carries counts of eleven work practices: seven counted by code and four classified by your own model. Each one is shown as "seen in N of M sessions", with the number of products and months it spans. It is never a score, a percentage or a total, and nothing here says anything about tone, skill or character. You can read the counts in the "How the work is done" section of `out/profile.md` before you submit anything. That section only appears when at least one practice could be counted in your sessions.
 
-Each practice is counted against the sessions where it could have happened (M):
+The seven code practices are counted from the tool calls and file paths your logs already contain. No model is involved and nothing new is read.
+
+Each code practice is counted against the sessions where it could have happened (M):
 
 - `checks_before_commit`: After the last file edit before a git commit, a check ran in the session: tests, a linter, a type check or a build. M is the sessions with a commit.
 - `tests_with_changes`: Both a source file and a test file were edited in the session. M is the sessions that edited a source file.
@@ -79,6 +81,30 @@ Each practice is counted against the sessions where it could have happened (M):
 - `reviews_changes`: Before a commit or a pull request, the diff appeared in the session (git diff, git show or gh pr diff), whoever asked for it; the session cannot show whether anyone read it. M is the sessions with a commit or a pull request.
 - `design_documents`: A design document (an ADR, RFC, spec or design file, by path) was written or edited in the session. M is the sessions with an edit.
 - `security_checks`: A dependency audit or a security scanner ran in the session. M is the sessions with an edit.
+
+The four model practices are classified by the model you already use, not by rebase: the slash-command agent in Claude Code, or your own API key when you run `generate` with `ANTHROPIC_API_KEY` set. They read at most 60 sampled sessions (only sessions with at least two messages from you, spread across products and months) and at most 12 of your own messages in each, first and then evenly spaced, each cut to 600 characters and already redacted. The agent's replies and your files are never read, and neither are the texts an agent wrote: Claude Code sub-agent briefs, task notifications, compaction summaries, and opencode child sessions are skipped. The model answers one yes or no per practice per session, and nothing else. Tone, feelings, politeness and wording quality are never grounds for a yes. M is the number of sessions classified, at most 60:
+
+- `asks_for_alternatives`: asks for options or trade-offs before choosing one.
+- `pushes_back_with_reason`: rejects or corrects what the agent proposed or did, and says why.
+- `states_done_criteria`: states acceptance criteria, the expected behaviour, or the check that proves it.
+- `limits_scope`: cuts, splits or defers part of the work explicitly.
+
+With the slash command, your messages go to whatever provider your agent already uses; rebase never receives them. With `generate` and `ANTHROPIC_API_KEY` set, the sample (up to 60 sessions, 12 messages of 600 characters each, yours, redacted) is sent to api.anthropic.com under your key, even when `--narrative-file` is given. Only the counts leave your machine for rebase. The per-session answers stay in `out/practices-detail.json`, which is never sent. The slash command's clean-up step deletes `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json`; with `generate` or a manual `prepare` and `finalize` they stay in `out/` until you delete it (`out/` is the one folder to delete), and the next `prepare` replaces them. The hub shows these four as "dal modello della persona, non ricontrollato": it cannot recheck them, because your messages never reach it.
+
+**How the four were checked.** A model practice is published only if it reaches 90% on two checks, measured with the shipped prompt wording and examples (with all six candidates in the prompt, where production lists only the four published) and the shipped message selection. The stability sessions came from Claude Code and omp logs, where the skip of opencode child sessions does not apply. Pooled agreement: the model's answers match a written reference set of 224 sessions (Italian and English, with at least 8 clear cases and 8 near misses per practice, expected answers fixed when written and checked by a blind second reader, a separate agent given only the messages and the rubric). Every session is classified on all six candidates, so each practice is also tried on the other practices' sessions. Stability: two runs of the model on the same 40 real sessions give the same answer (the developer's own sessions, client work excluded). The reference sessions were written by an agent, not by people. The model measured was `claude-opus-4-7`, through the API-path prompt in batches of 10 sessions, so these figures hold for that model and that prompt, not for whichever model you run or for the slash-command path:
+
+| Practice | Positives found (own sessions) | Near misses not counted (own sessions) | False positives on other practices' sessions | Pooled agreement (224) | Stability (40, true in run A / run B) | Result |
+|---|---|---|---|---|---|---|
+| `asks_for_alternatives` | 20/20 | 20/20 | 1 | 223/224 | 39/40 (4 / 3) | published |
+| `pushes_back_with_reason` | 16/16 | 20/20 | 5 (and 1 missed secondary positive) | 218/224 | 38/40 (10 / 8) | published |
+| `states_done_criteria` | 20/20 | 20/20 | 1 | 223/224 | 38/40 (3 / 3) | published |
+| `gives_context_and_constraints` | 20/20 | 14/20 | 22 | 196/224 | 35/40 (26 / 31) | not published (agreement and stability below 90%) |
+| `raises_risks` | 17/17 | 16/17 | 3 | 220/224 | 35/40 (2 / 5) | not published (stability below 90%) |
+| `limits_scope` | 18/18 | 15/16 | 4 | 219/224 | 39/40 (6 / 7) | published |
+
+How to read the table. A classifier that always answered false would score 202 to 207 of 224 pooled, which is why the two own-session columns matter more than the pooled figure. Almost every miss is a false positive: the model errs towards counting a practice, so read each count as an upper bound. Stability rests on few true answers for some practices (3 to 10 per run), so it shows that the answers repeat, not that they are right. The reference sessions are written, not real: the blind second reader, a separate agent, labelled them, and the sessions where it disagreed with the writer were rewritten or dropped (6 rewritten, 16 dropped of 240), so the agreement figures are on cases two readers agree on. Some of the 40 stability sessions were dispatched by an agent rather than typed by a person. Neither number is accuracy on real sessions.
+
+`gives_context_and_constraints` (explains the goal, the constraints, or who the work is for, before asking for changes) and `raises_risks` (raises a risk: security, data loss, cost, performance, compatibility, rollout) did not reach the threshold, so they are not published and are not classified. To run the checks again: `node scripts/practices-gate.mjs agreement` and `node scripts/practices-gate.mjs stability` (see the header of the script for the options).
 
 How it is read:
 
@@ -115,14 +141,16 @@ Under the EU AI Act (Regulation 2024/1689), systems that filter job applications
 
 You decide which projects rebase sees, so the tool can't see what's missing. Logs of solo work mostly show execution, which means leadership, mentoring, and the work of being with humans is invisible from here. The thresholds (read-to-edit above 2, ≥15 delegations) are empirical: we don't know yet how they hold across hundreds of people. The narrative is written by a model; the prompt constrains it, it doesn't make it neutral. A person at rebase reads each profile by hand, and we're still learning what to look for.
 
+The four model practices come from your own model reading your own messages: you can steer your agent or edit the answers file, and the hub cannot recheck them. Agent-written text is skipped only where the logs mark it (Claude Code sub-agent briefs, task notifications, compaction summaries, opencode child sessions); a session another tool's agent drove (a dispatched or headless run) can still be read as if you typed it, since the logs cannot always tell.
+
 If you spot something we should change, [open an issue](https://github.com/letsrebase/rebase-verify/issues).
 
 ## Commands
 
 | | |
 |---|---|
-| `generate` *(default)* | full profile, locally |
-| `prepare` | only `out/narrative-input.json`, for writing the narrative manually |
+| `generate` *(default)* | full profile, locally; with `ANTHROPIC_API_KEY` set, the key sends the practices sample, and the narrative input unless `--narrative-file` is given, to Anthropic |
+| `prepare` | `out/narrative-input.json`, for writing the narrative manually, and `out/practices-input.json` with `out/practices-sample.json` for the model practices; `finalize` must get the same `--tz` |
 | `finalize --narrative-file out/narrative.json` | finalize after `prepare` |
 | `submit --dry-run` | write the exact outgoing payload to `out/payload-preview.json`, send nothing |
 | `submit --yes` | sign in to rebase in the browser, then send the profile; a person at rebase reviews it |

@@ -1,0 +1,297 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "raises_risks",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "raises_risks.en.p01",
+      "kind": "positive",
+      "messages": [
+        "Before running that migration: it locks the orders table, and at peak we do thousands of writes a minute. That will stall checkout.",
+        "Can it be done in batches off-peak?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p02",
+      "kind": "positive",
+      "messages": [
+        "That endpoint takes a user id from the query string and returns their data. Anyone could enumerate ids and read other people's records.",
+        "Add an ownership check."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p03",
+      "kind": "positive",
+      "messages": [
+        "If we drop that column we can't get the data back, there's no backup of this table.",
+        "Take a snapshot first."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p04",
+      "kind": "positive",
+      "messages": [
+        "Calling the LLM on every keystroke will burn money fast, we'd be at several hundred dollars a day with the current traffic.",
+        "Debounce it and cache results."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p05",
+      "kind": "positive",
+      "messages": [
+        "Changing the response field from string to number will break the old mobile app versions still in the store.",
+        "Keep both fields for now."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p06",
+      "kind": "positive",
+      "messages": [
+        "This query does a full scan on a 50M-row table inside a request handler. It'll degrade under load.",
+        "Add an index or move it to a job."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p07",
+      "kind": "positive",
+      "messages": [
+        "Deploying on Friday evening with no rollback plan worries me: if the new queue consumer misbehaves we'd send duplicate emails to all customers.",
+        "Add a feature flag so we can switch it off."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p08",
+      "kind": "positive",
+      "messages": [
+        "You've put the API key in the config file that's committed. That leaks the secret to anyone with repo access.",
+        "Move it to env vars and rotate the key."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Be careful with the database.",
+        "Don't break anything."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "This feels risky.",
+        "Go ahead anyway."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Is the deploy done?",
+        "What time did it finish?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Add a test for the null case.",
+        "And the empty list."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Make sure it's secure.",
+        "And fast."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Is this thread-safe?",
+        "Okay, thanks."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Delete the old logs folder.",
+        "Then update the gitignore."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n08",
+      "kind": "near_miss",
+      "messages": [
+        "The deploy failed yesterday and it was awful.",
+        "Redeploy with the same config."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.p10",
+      "kind": "positive",
+      "messages": [
+        "Before we merge: the new endpoint accepts any file type and saves it under the web root.",
+        "Someone could upload a script and run it.",
+        "I don't want to ship that. Restrict types and move storage outside the web root."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.en.n09",
+      "kind": "near_miss",
+      "messages": [
+        "Is it safe to run the migration now?",
+        "Ok, I'll trust that.",
+        "Run it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

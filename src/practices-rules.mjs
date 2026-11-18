@@ -216,11 +216,67 @@ export const NOTES = [
   "Options that list files or statistics instead of the diff, such as git diff --stat and --name-only, and git show <rev>:<path>, are not read as a diff appearing.",
 ];
 
+// One sentence for the artifact and the prompt: the same words in both.
+export const TONE_RULE = "Tone, feelings, politeness and wording quality are never grounds for a yes.";
+
+// The four that passed the gate (REB-1146), measured with the shipped prompt
+// wording and message selection and all six candidates in the prompt.
+// gives_context_and_constraints (agreement and stability) and raises_risks
+// (stability) stayed under the 90% threshold and are not published.
+export const PUBLISHED_MODEL_IDS = ["asks_for_alternatives", "pushes_back_with_reason", "states_done_criteria", "limits_scope"];
+
+// The six candidates for the model practices; only the published ones leave
+// the machine (PUBLISHED_MODEL_IDS), the gate checks the rest.
+export const MODEL_PRACTICE_CANDIDATES = [
+  {
+    id: "asks_for_alternatives", method: "model",
+    definition: "asks for options or trade-offs before choosing one",
+    positive: ["Before we pick a queue library, give me two or three options with their trade-offs.", "Is there another way to do this besides a cron job? Compare them for me."],
+    negative: ["Use Redis for the queue.", "What does this function return when the list is empty?"],
+  },
+  {
+    id: "pushes_back_with_reason", method: "model",
+    definition: "rejects or corrects what the agent proposed or did, and says why",
+    positive: ["No, don't mock the database here: the bug was in the real query, so the test would hide it.", "That rename breaks the public API for existing users, revert it."],
+    negative: ["No, not like that.", "Why did you choose a map here instead of a list?"],
+  },
+  {
+    id: "states_done_criteria", method: "model",
+    definition: "states acceptance criteria, the expected behaviour, or the check that proves it",
+    positive: ["Done when the export returns all rows and the integration test for empty results passes.", "It should redirect to /login when the session expires; I'll check that by hand."],
+    negative: ["Make the export work.", "Make sure it works properly when you are done."],
+  },
+  {
+    id: "gives_context_and_constraints", method: "model",
+    definition: "explains the goal, the constraints, or who the work is for, before asking for changes",
+    positive: ["This page is for non-technical admins and must work without JavaScript, so render it on the server.", "We ship Friday and cannot add dependencies; add the filter using what we already have."],
+    negative: ["Add a filter to the page.", "Fix the bug in the parser."],
+  },
+  {
+    id: "raises_risks", method: "model",
+    definition: "raises a risk: security, data loss, cost, performance, compatibility, rollout",
+    positive: ["This migration drops the column; what happens to rows written during the deploy?", "Calling the API on every keystroke will blow our rate limit and the bill."],
+    negative: ["Be careful with this change.", "Make it fast."],
+  },
+  {
+    id: "limits_scope", method: "model",
+    definition: "cuts, splits or defers part of the work explicitly",
+    positive: ["Only do the backend for now; leave the UI for a separate change.", "Skip the refactor, just fix the crash in this PR."],
+    negative: ["Do the backend and the UI and the docs.", "Can you also look at the other files while you are there?"],
+  },
+];
+
 export function practicesArtifact() {
   return {
     rubric: RUBRIC,
     notes: NOTES,
-    practices: CODE_PRACTICES.map(({ id, method, definition, denominator }) => ({ id, method, definition, denominator })),
+    practices: [
+      ...CODE_PRACTICES.map(({ id, method, definition, denominator }) => ({ id, method, definition, denominator })),
+      ...PUBLISHED_MODEL_IDS.map((id) => {
+        const { method, definition, positive, negative } = MODEL_PRACTICE_CANDIDATES.find((c) => c.id === id);
+        return { id, method, definition, positive, negative, tone: TONE_RULE };
+      }),
+    ],
     rules: {
       testPaths: sources(TEST_PATH_PATTERNS),
       sourceExclusions: sources(SOURCE_EXCLUSION_PATTERNS),

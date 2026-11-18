@@ -1,0 +1,332 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "asks_for_alternatives",
+  "lang": "en",
+  "sessions": [
+    {
+      "id": "asks_for_alternatives.en.p01",
+      "kind": "positive",
+      "messages": [
+        "The export job times out on big accounts.",
+        "Before you touch anything, what are the ways we could fix this? Batching, a queue, streaming? I'd like the trade-offs of each."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p02",
+      "kind": "positive",
+      "messages": [
+        "We need to store user preferences somewhere.",
+        "Compare keeping them in a JSON column versus a separate table for us, pros and cons, then I'll pick."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p03",
+      "kind": "positive",
+      "messages": [
+        "Should the retry logic live in the client or in the gateway? Lay out both and what each costs us in maintenance.",
+        "Don't change code yet."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p04",
+      "kind": "positive",
+      "messages": [
+        "Our CSS is a mess. I'm thinking of moving to Tailwind but I'm not sure.",
+        "What else could we do besides that? Give me two or three realistic paths and what we'd lose with each."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p05",
+      "kind": "positive",
+      "messages": [
+        "The migration script works on staging.",
+        "Is there a cheaper way than rewriting the whole table? Show me at least one other approach before you start."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p06",
+      "kind": "positive",
+      "messages": [
+        "Need to add auth to the internal dashboard.",
+        "Sketch a couple of ways to do it, session cookies vs JWT vs putting it behind the VPN proxy, and tell me which you'd lean to and why."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p07",
+      "kind": "positive",
+      "messages": [
+        "What would be the alternative to polling here?",
+        "And what does websockets cost us compared to server-sent events?"
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p08",
+      "kind": "positive",
+      "messages": [
+        "Should we version this API? Give me the options for versioning and what each costs us.",
+        "I'll decide after."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n01",
+      "kind": "near_miss",
+      "messages": [
+        "Why does this function return null here?",
+        "Okay, and what does the test file do?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Add a Redis cache in front of the product query.",
+        "How long will that take?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Make the form validation better.",
+        "I'm not sure what's best, just do whatever you think works."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Explain how the current queue works.",
+        "Walk me through what happens when a job fails."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Switch the build to esbuild.",
+        "Does esbuild support our decorators config?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n06",
+      "kind": "near_miss",
+      "messages": [
+        "I considered Postgres and SQLite and went with Postgres. Set up the schema.",
+        "Use uuid keys."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n07",
+      "kind": "near_miss",
+      "messages": [
+        "You proposed option B. Go with it.",
+        "Implement it in the service layer."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n08",
+      "kind": "near_miss",
+      "messages": [
+        "What's the difference between map and flatMap here?",
+        "ok fix line 40 then"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p09",
+      "kind": "positive",
+      "messages": [
+        "Ok, you went with a cron job for the sync.",
+        "Hm. Is that really the only way? I'd want to see what a queue-based version would look like and what it costs to run.",
+        "Don't rewrite yet, just compare the two for our volume."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.p10",
+      "kind": "positive",
+      "messages": [
+        "The diff looks fine but I'm not convinced about storing sessions in memory.",
+        "What are the other places we could keep them, and what breaks for each when we run two instances?",
+        "Then recommend one."
+      ],
+      "expected": {
+        "asks_for_alternatives": true,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n09",
+      "kind": "near_miss",
+      "messages": [
+        "You picked SQLite for the cache.",
+        "Why SQLite?",
+        "Okay. And is that what people usually use for this?",
+        "Fine, keep it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "asks_for_alternatives.en.n10",
+      "kind": "near_miss",
+      "messages": [
+        "You listed two approaches earlier. I'm taking the second.",
+        "Does it need a new env var?",
+        "Ok. Implement it."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

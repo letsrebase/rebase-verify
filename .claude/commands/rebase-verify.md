@@ -14,7 +14,7 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
    ```
    node bin/rebase-verify.mjs prepare
    ```
-   If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 5 (finalize re-reads the logs, so it needs the same zone).
+   If the candidate opted into a local timezone in step 1, append `--tz <zone>` here AND to the `finalize` call in step 6. `prepare` and `finalize` must use the same `--tz`: the sampled sessions in `out/practices-sample.json` and every day and month count are bucketed in that zone, and `finalize` re-reads the logs.
    Show the candidate the line `… representative: …` from the output. This is the auto-selection of representative projects, 3 to 5, adaptive: flagships by significance, plus a 4th/5th slot only when a project adds a new primary type or comparable significance. `--top N` forces a fixed count if the candidate asks.
 
 3. **Read `out/narrative-input.json`.** It contains:
@@ -60,15 +60,27 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
    - Length: summary ≤ 60 words; cognitive narrative ≤ 130 words; learning summary ≤ 40 words; ai_relationship / intensity / distribution narratives ≤ 50 words each; per-project domain ≤ 60 words; per-project `did` ≤ 60 words.
    - Domains rollup: 3-5 entries. Assign every product in `domainEvidence` to exactly one domain; the summed `products` and `sessions` across domains must not exceed the profile totals (groundedness checks this). Labels abstract, counts only, never names.
 
-5. **Run finalize.** Execute:
+5. **Classify the model practices, only when `out/practices-input.json` exists.** If the file is not there, skip this step. Before you read anything, tell the candidate in plain words:
+   - which practices are classified: the ids listed under `practices` in `out/practices-input.json`, each with its definition and examples (what counts and what does not);
+   - that only their own messages are read, from the sampled sessions (at most 60 sessions, 12 messages each, already redacted), never the agent's answers, sub-agent briefs, task notifications, compaction summaries, opencode child sessions or any file;
+   - that the model they are already using here answers, and rebase never receives the messages, only the counts;
+   - that only the counts leave their machine ("seen in N of M sessions"), while the per-session answers stay in `out/practices-detail.json`, which is never sent.
+
+   Then read `out/practices-input.json` and write `out/practices.json`: exactly one object per session id (`s01`, `s02`, …) and, in it, exactly one boolean per practice id. No other keys, no reasons, no quotes. Apply each definition as written, answer `false` when in doubt, and never let tone, feelings, politeness or wording quality count as a reason for `true`. Example for two practices and two sessions:
+   ```json
+   { "s01": { "practice_one": true, "practice_two": false }, "s02": { "practice_one": false, "practice_two": false } }
+   ```
+   The next step runs `finalize`, which merges the counts; it checks the file and stops with a message if it does not fit.
+
+6. **Run finalize.** Execute:
    ```
    node bin/rebase-verify.mjs finalize \
      --narrative-file out/narrative.json
    ```
    This writes `out/candidate.json` (for agents) and `out/profile.md` (for humans).
-   The profile now also carries counts of work practices (seen in N of M sessions, counted by code from tool calls and file paths; only the counts are carried, never the commands, paths or file names). Tell the candidate they can read them under "How the work is done" in `out/profile.md` (that section only appears when at least one practice could be counted), and that the README section "Work practices" defines each one.
+   The profile now also carries counts of work practices (seen in N of M sessions, seven counted by code from tool calls and file paths, four classified by their own model in step 5, all visible in this profile; only the counts are carried, never the commands, paths or file names). Tell the candidate they can read them under "How the work is done" in `out/profile.md` (that section only appears when at least one practice could be counted), and that the README section "Work practices" defines each one.
 
-6. **Show `out/profile.md`** to the candidate, then ask the four review questions below **ONE AT A TIME, in order**. Wait for an answer before moving to the next. **Do NOT enumerate them in a single block**: the goal is a conversation, not a survey.
+7. **Show `out/profile.md`** to the candidate, then ask the four review questions below **ONE AT A TIME, in order**. Wait for an answer before moving to the next. **Do NOT enumerate them in a single block**: the goal is a conversation, not a survey.
 
    **Question 1: Representative projects.** State the ones that were auto-selected (3 to 5) with their repoLabel ("acme-storefront, e-commerce storefront", etc.) and ask if any should be swapped for one from the inventory. After their answer, edit `out/candidate.json` if needed.
 
@@ -86,13 +98,13 @@ The default is **save, don't submit**. Submitting is a separate, explicit action
 
    **Question 3: New vocabulary review.** Read the list of words you picked for `vocabulary_adopted` aloud with them. Flag any borderline tokens (researcher / framework / library names are signal; client / colleague / brand names are not, distinguishing automatically is hard so you mention them, not pre-decide). Ask if there's anything they'd rather not surface. Edit `out/candidate.json` and re-render `out/profile.md` if needed.
 
-   **Question 4: Narrative refinements.** Ask if anything in the summary, cognitive narrative, trajectory narrative, or per-project text reads off. If yes, rewrite `out/narrative.json` (same hard rules) and run finalize again.
+   **Question 4: Narrative refinements.** Ask if anything in the summary, cognitive narrative, trajectory narrative, or per-project text reads off. If yes, rewrite `out/narrative.json` (same hard rules), run `finalize` again (step 6) and, because it rebuilds `out/candidate.json` from scratch, apply the edits from questions 1 to 3 again.
 
-7. **Clean up.** Delete `out/narrative-input.json` once the candidate is satisfied (it contains local repo context with real names). Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
+8. **Clean up.** Delete `out/narrative-input.json`, `out/practices-input.json`, `out/practices-sample.json` and `out/practices.json` (when present) once the candidate is satisfied (they contain local repo context or the candidate's own messages; the answers and the sample go together, because `finalize` needs both). `out/practices-detail.json` may stay as the candidate's own record. Keep `out/narrative.json`, `out/candidate.json`, `out/profile.md`.
 
-8. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score`: show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
+9. **Mention the groundedness score.** The `assembleProfile` step writes `profile.groundedness.score`: show it to the candidate, e.g. "Groundedness: 92% of the verifiable anchors in the prose match your logs." If anomalies are interesting, glance at them (they're surfaced again at submit).
 
-9. **Tell them how to submit, when ready.** Do NOT submit yourself. Say:
+10. **Tell them how to submit, when ready.** Do NOT submit yourself. Say:
    > "When you're ready to send it to rebase, close this session and run `node bin/rebase-verify.mjs submit --yes` from this folder. It opens a browser tab where you sign in to rebase and press «Autorizza», so rebase knows it is you; no name, email or city is sent with the profile. A person at rebase then reads it before it counts: if they approve it, your profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project, which your own model wrote and you reviewed; its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. The profile stays on your machine until you send it. You can also keep it just for yourself. To see exactly what would be sent first (repository names and contact already stripped), run `node bin/rebase-verify.mjs submit --dry-run`: it writes `out/payload-preview.json` and sends nothing."
 
    (If the candidate prefers the shorter `rebase-verify submit --yes`, they can `npm link` once from the repo, but `node bin/rebase-verify.mjs` works without any setup.)

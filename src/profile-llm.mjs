@@ -9,7 +9,7 @@
 
 import { readFileSync } from "node:fs";
 
-const MODEL = "claude-opus-4-7";
+export const MODEL = "claude-opus-4-7";
 
 const SYSTEM = `You write a candidate's work profile from the logs of their activity with AI development tools.
 
@@ -70,7 +70,7 @@ Reply ONLY with a valid JSON in this shape:
 // soft constraints alone: replace capitalised tokens (not at sentence start)
 // with a generic marker. False positives are acceptable, false negatives are
 // the leak risk.
-function scrubProperNouns(text) {
+export function scrubProperNouns(text) {
   if (!text) return text;
   return text
     .replace(/(?<!^|[.!?]\s|\n)\b([A-ZÀ-Ý][a-zà-ÿ]{2,})(?!\.\w)/g, "⟨name⟩");
@@ -153,21 +153,37 @@ function narrativeInput(selected, enrichments, trajectory, compactionSummaries, 
   };
 }
 
-async function callAnthropic(input, key) {
+async function postMessage(key, system, user, maxTokens) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 3000,
-      system: SYSTEM,
-      messages: [{ role: "user", content: JSON.stringify(input) }],
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: user }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  const text = data.content?.find((b) => b.type === "text")?.text || "";
+  return data.content?.find((b) => b.type === "text")?.text || "";
+}
+
+async function callAnthropic(input, key) {
+  const text = await postMessage(key, SYSTEM, JSON.stringify(input), 3000);
   return JSON.parse(text.replace(/^```json\s*|\s*```$/g, "").trim());
+}
+
+// A `call({ system, user }) => Promise<string>` for the raw text answer.
+export const anthropicCall = (key) => ({ system, user }) => postMessage(key, system, user, 3000);
+
+// The runtime warning printed before anything is sent to api.anthropic.com.
+export function warnApiKey(what = "the narrative input (project labels, README/CLAUDE.md excerpts,\n            dependency names, commit subjects, sampled prompts)") {
+  console.error(
+    `[rebase-verify] ANTHROPIC_API_KEY is set: ${what} is being sent to api.anthropic.com.\n` +
+      "            To stay fully local until submit, unset the key and use the /rebase-verify slash command\n" +
+      "            (subscription path) or `prepare` + a hand-written narrative file. See PRIVACY.md."
+  );
 }
 
 // Light validation of the narrative shape. We don't want a malformed model
@@ -217,12 +233,7 @@ export async function generateNarrative(selected, enrichments, { overrideFile, t
   if (overrideFile) return { narrative: validateNarrative(JSON.parse(readFileSync(overrideFile, "utf8")), overrideFile), input };
   const key = process.env.ANTHROPIC_API_KEY;
   if (key) {
-    console.error(
-      "[rebase-verify] ANTHROPIC_API_KEY is set: the narrative input (project labels, README/CLAUDE.md excerpts,\n" +
-        "            dependency names, commit subjects, sampled prompts) is being sent to api.anthropic.com.\n" +
-        "            To stay fully local until submit, unset the key and use the /rebase-verify slash command\n" +
-        "            (subscription path) or `prepare` + a hand-written narrative file. See PRIVACY.md."
-    );
+    warnApiKey();
     return { narrative: validateNarrative(await callAnthropic(input, key), "API"), input };
   }
   return { narrative: null, input };

@@ -1,0 +1,265 @@
+{
+  "rubric": "rebase-practices/v1",
+  "practice": "raises_risks",
+  "lang": "it",
+  "sessions": [
+    {
+      "id": "raises_risks.it.p02",
+      "kind": "positive",
+      "messages": [
+        "Quell'endpoint prende un id utente dalla query string e restituisce i suoi dati. Chiunque può enumerare gli id e leggere i dati altrui.",
+        "Aggiungi un controllo di proprietà."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p03",
+      "kind": "positive",
+      "messages": [
+        "Se eliminiamo quella colonna i dati non si recuperano, di questa tabella non c'è backup.",
+        "Fai prima uno snapshot."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p04",
+      "kind": "positive",
+      "messages": [
+        "Chiamare l'LLM a ogni tasto premuto brucia soldi: col traffico attuale saremmo a centinaia di euro al giorno.",
+        "Metti un debounce e una cache dei risultati."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p05",
+      "kind": "positive",
+      "messages": [
+        "Cambiare il campo da stringa a numero rompe le vecchie versioni dell'app mobile ancora sullo store.",
+        "Per ora tieni entrambi i campi."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p06",
+      "kind": "positive",
+      "messages": [
+        "Questa query fa una scansione completa su una tabella da 50 milioni di righe dentro una richiesta. Sotto carico peggiora.",
+        "Aggiungi un indice o spostala in un job."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p07",
+      "kind": "positive",
+      "messages": [
+        "Rilasciare venerdì sera senza piano di rollback mi preoccupa: se il nuovo consumer della coda impazzisce mandiamo email doppie a tutti i clienti.",
+        "Metti un feature flag per spegnerlo."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p08",
+      "kind": "positive",
+      "messages": [
+        "Hai messo la chiave API nel file di config che viene committato. Così il segreto è visibile a chiunque abbia accesso al repo.",
+        "Spostala nelle variabili d'ambiente e ruota la chiave."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n02",
+      "kind": "near_miss",
+      "messages": [
+        "Mi sembra rischioso.",
+        "Procedi comunque."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n03",
+      "kind": "near_miss",
+      "messages": [
+        "Il deploy è finito?",
+        "A che ora ha finito?"
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n04",
+      "kind": "near_miss",
+      "messages": [
+        "Aggiungi un test per il caso null.",
+        "E per la lista vuota."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n05",
+      "kind": "near_miss",
+      "messages": [
+        "Assicurati che sia sicuro.",
+        "E veloce."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n06",
+      "kind": "near_miss",
+      "messages": [
+        "Questo codice è thread-safe?",
+        "Ok, grazie."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n07",
+      "kind": "near_miss",
+      "messages": [
+        "Elimina la cartella dei vecchi log.",
+        "Poi aggiorna il gitignore."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n08",
+      "kind": "near_miss",
+      "messages": [
+        "Il deploy di ieri è fallito ed è stato un disastro.",
+        "Rilancia con la stessa configurazione."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.p10",
+      "kind": "positive",
+      "messages": [
+        "Prima del merge: il nuovo endpoint accetta qualsiasi tipo di file e lo salva sotto la web root.",
+        "Qualcuno potrebbe caricare uno script ed eseguirlo.",
+        "Non voglio rilasciarlo così. Limita i tipi e sposta l'archiviazione fuori dalla web root."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": true,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": true,
+        "limits_scope": false
+      }
+    },
+    {
+      "id": "raises_risks.it.n09",
+      "kind": "near_miss",
+      "messages": [
+        "È sicuro lanciare la migrazione adesso?",
+        "Ok, mi fido.",
+        "Lanciala."
+      ],
+      "expected": {
+        "asks_for_alternatives": false,
+        "pushes_back_with_reason": false,
+        "states_done_criteria": false,
+        "gives_context_and_constraints": false,
+        "raises_risks": false,
+        "limits_scope": false
+      }
+    }
+  ]
+}

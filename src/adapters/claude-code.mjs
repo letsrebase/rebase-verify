@@ -191,6 +191,11 @@ export function readClaudeCode(root) {
         signatureChars,
         toolUses,
         toolResults,
+        // Records that are not the person typing: sub-agent briefs, injected
+        // context, compaction summaries. Carried only when the log says so.
+        ...(r.isSidechain === true ? { isSidechain: true } : {}),
+        ...(r.isMeta === true ? { isMeta: true } : {}),
+        ...(r.isCompactSummary === true ? { isCompactSummary: true } : {}),
         usage: m.usage
           ? {
               input: m.usage.input_tokens || 0,
