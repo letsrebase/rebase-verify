@@ -16,6 +16,13 @@ export const DEFAULT_TZ = "UTC";
 
 // Day key (YYYY-MM-DD) in an explicit timezone. Uses Intl with an explicit
 // `timeZone`, so it does NOT depend on the host machine's TZ env or locale.
+// True when `tz` is an IANA zone Intl accepts. Used wherever a RECORDED zone is
+// read back from a profile, so a hand-edited value is reported, not thrown.
+export function isValidTimezone(tz) {
+  if (typeof tz !== "string" || !tz) return false;
+  try { new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(0); return true; } catch { return false; }
+}
+
 export function dayKeyFor(tz = DEFAULT_TZ) {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
   return (ts) => fmt.format(new Date(ts));
@@ -28,4 +35,11 @@ export function activeDayKeys(timestamps, tz = DEFAULT_TZ) {
   const days = new Set();
   for (const t of timestamps) if (Number.isFinite(t)) days.add(key(t));
   return days;
+}
+
+// Month key (YYYY-MM) in an explicit timezone: the first seven characters of
+// the day key, so months and days always bucket the same way for the same --tz.
+export function monthKeyFor(tz = DEFAULT_TZ) {
+  const key = dayKeyFor(tz);
+  return (ts) => key(ts).slice(0, 7);
 }

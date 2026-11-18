@@ -19,8 +19,9 @@
 //                                  # or WORK_PROFILE_HUB_URL; "preview" = preview.letsrebase.com)
 //   --top 4                        # force the number of representative projects
 //                                  # (default: adaptive, 3 to 5)
-//   --tz Europe/Rome               # timezone for day-based counts (activeDays,
-//                                  # streak). Default UTC; recorded in the profile.
+//   --tz Europe/Rome               # timezone for day and month counts (activeDays,
+//                                  # streak, technology-usage months). Default UTC;
+//                                  # recorded in the profile.
 //   --narrative-file narrative.json
 //
 // Three ways to provide the narrative step (the qualitative prose):
@@ -49,6 +50,7 @@ import { computeAiRelationship } from "../src/ai-relationship.mjs";
 import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
+import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -150,7 +152,7 @@ async function loadProfileInputs(out) {
   const forensics = computeForensics(parsed);
 
   console.log(`[3/5] Deep digest + per-repo clustering (PII redacted: ${parsed.redaction.hits}) ...`);
-  const digest = buildDigest(parsed);
+  const digest = buildDigest(parsed, { tz });
   const projects = selectRepresentatives(digest.projects, flag("top") ? +flag("top") : "auto");
   const selected = projects.filter((p) => p.selected);
   console.log(`      ${digest.projectCount} products, ${selected.length}${flag("top") ? "" : " (adaptive 3-5)"} representative: ${selected.map((p) => `${p.repo}[${p.type[0]}]`).join(", ")}`);
@@ -163,8 +165,9 @@ async function loadProfileInputs(out) {
   const agenticLiteracy = computeAgenticLiteracy(parsed);
   const intensity = computeIntensity(parsed, { tz });
   const distribution = computeDistribution(projects);
+  const techUsage = computeTechUsage(projects, { tz });
   const sources = summarizeSources(parsed);
-  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources, out };
+  return { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources, out };
 }
 
 function writeProfile(out, profile) {
@@ -179,7 +182,7 @@ function writeProfile(out, profile) {
 async function cmdGenerate() {
   const out = outDir();
   console.log(`\nwork-profile generate\n`);
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
 
   console.log(`[4/5] Narrative ...`);
   const narrativeFile = flag("narrative-file");
@@ -203,7 +206,7 @@ async function cmdGenerate() {
 
   console.log(`[5/5] Assembling and saving ...\n`);
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -249,7 +252,7 @@ async function cmdFinalize() {
     console.error(`Missing ${narrativeFile}. Run work-profile prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
-  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources } = await loadProfileInputs(out);
+  const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources } = await loadProfileInputs(out);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -261,7 +264,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
@@ -288,7 +291,7 @@ async function cmdSubmit() {
   console.log(`  artifact links: ${links}`);
   console.log(`\nYou sign in in the browser first, so rebase knows it is you; no name, email or city is sent with the profile.`);
   console.log(`A person at rebase reads it before it counts. If they approve it, your profile gets «Verificato da rebase»,`);
-  console.log(`companies in the talent cloud can see its summary and domains (written by your model, reviewed by you), and its text is used to write your anonymous card.`);
+  console.log(`companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card (written by your model, reviewed by you), for example in the talent cloud or when rebase proposes you for a project, and its text is used to write your anonymous card.`);
   console.log(`It is kept at most 12 months, and you can delete it from your member area.`);
   console.log(`Controller: Rebase S.r.l. (VAT IT 14971460960). Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
@@ -325,11 +328,14 @@ async function cmdSubmit() {
     // Re-derive from the SAME source mix the profile was generated from
     // (see sourceFlags()'s comment for why this must never drift).
     const parsed = readAllSources({ claudeRoot: root, sources: sourceFlags() });
-    const digest = buildDigest(parsed);
-    // Re-derive day-based intensity in the zone the profile RECORDED, never
-    // the machine zone, so the comparison measures the data, not the bucketing.
+    // Re-derive day-based intensity and tech-usage months in the zone the
+    // profile RECORDED, never the machine zone, so the comparison measures
+    // the data, not the bucketing.
+    const techTz = recordedTechUsageTz(profile);
+    const digest = buildDigest(parsed, { tz: techTz });
     const intensity = computeIntensity(parsed, { tz: profile.intensity?.timezone || DEFAULT_TZ });
-    const logs = assessAgainstLogs(profile, digest.projects, { intensity });
+    const techUsage = computeTechUsage(digest.projects, { tz: techTz });
+    const logs = assessAgainstLogs(profile, digest.projects, { intensity, techUsage });
     issues.push(...logs.issues);
     excessClaims = logs.excessClaims || 0;
     for (const w of logs.warnings) console.log(`  ~ ${w}`);

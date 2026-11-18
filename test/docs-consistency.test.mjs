@@ -147,3 +147,15 @@ test("all three surfaces say dispatch may target the same CLI, not only another"
     assert.ok(/same (CLI|tool)/i.test(text), `${name} must say dispatch may target the same CLI/tool`);
   }
 });
+
+// 11. The technology-usage block is transmitted, so PRIVACY §2 must disclose it
+//     and the README must describe it with the same band names the code emits.
+test("PRIVACY §2 and README disclose the technology-usage block and its bands", () => {
+  const sec2 = privacy.split(/^## 3\./m)[0];
+  assert.ok(/technology-usage/i.test(sec2), "PRIVACY §2 must disclose the technology-usage block");
+  assert.ok(/never appears/i.test(sec2), "PRIVACY §2 must say custom/private dependencies never appear");
+  for (const band of ["continuous", "recurring", "occasional"]) {
+    assert.ok(readme.includes(`*${band}*`), `README must describe the ${band} band`);
+  }
+  assert.ok(/empirical/i.test(readme), "README must say the thresholds are empirical");
+});

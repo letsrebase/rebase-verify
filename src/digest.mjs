@@ -8,6 +8,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { monthKeyFor, DEFAULT_TZ } from "./days.mjs";
 
 const ms = (iso) => (iso ? Date.parse(iso) : NaN);
 const month = (iso) => (iso ? new Date(ms(iso)).toISOString().slice(0, 7) : null);
@@ -349,8 +350,11 @@ function countDispatch(cmds) {
   return n;
 }
 
-export function buildDigest(parsed) {
+// `tz` buckets the per-product calendar months (`months`) the same way days are
+// bucketed elsewhere (--tz); the older `from`/`to` stay UTC for compatibility.
+export function buildDigest(parsed, { tz = DEFAULT_TZ } = {}) {
   const byRepo = new Map();
+  const monthKey = monthKeyFor(tz);
 
   for (const s of parsed.sessions) {
     const cwd = s.cwdRaw || s.cwdRedacted || "";
@@ -360,7 +364,7 @@ export function buildDigest(parsed) {
       byRepo.set(key, {
         repo: key, cwdRaw: s.cwdRaw || "", cwds: [], sessions: 0, userMessages: 0, prompts: [],
         toolHist: {}, areas: {}, exts: {}, cmds: [], webQueries: [], sources: {}, sourceSpans: {},
-        delegation: 0, planning: 0, firstTs: null, lastTs: null,
+        delegation: 0, planning: 0, firstTs: null, lastTs: null, months: new Set(),
       });
     }
     const p = byRepo.get(key);
@@ -374,6 +378,7 @@ export function buildDigest(parsed) {
     for (const m of s.messages) {
       const t = ms(m.ts);
       if (Number.isFinite(t)) {
+        p.months.add(monthKey(t));
         if (!p.firstTs || t < p.firstTs) p.firstTs = t;
         if (!p.lastTs || t > p.lastTs) p.lastTs = t;
         // Per-source activity span, to tell concurrent fan-out apart from a
@@ -437,6 +442,8 @@ export function buildDigest(parsed) {
         // fabricated "1970-01" is a claimed date the logs can't back.
         from: p.firstTs ? month(new Date(p.firstTs).toISOString()) : null,
         to: p.lastTs ? month(new Date(p.lastTs).toISOString()) : null,
+        // Calendar months (in `tz`) with real message activity, for tech usage.
+        months: [...p.months].sort(),
         sessions: p.sessions,
         userMessages: p.userMessages,
         // Code-volume signal for representative selection (edits/writes landed).
