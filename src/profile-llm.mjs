@@ -154,9 +154,10 @@ function narrativeInput(selected, enrichments, trajectory, compactionSummaries, 
   };
 }
 
-async function postMessage(key, system, user, maxTokens) {
+async function postMessage(key, system, user, maxTokens, signal) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
+    signal,
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
@@ -175,8 +176,8 @@ async function callAnthropic(input, key) {
   return firstJsonObject(text);
 }
 
-// A `call({ system, user }) => Promise<string>` for the raw text answer.
-export const anthropicCall = (key) => ({ system, user }) => postMessage(key, system, user, 3000);
+// A `call({ system, user }) => Promise<string>` for the raw text answer; `signal` aborts the request.
+export const anthropicCall = (key, { signal } = {}) => ({ system, user }) => postMessage(key, system, user, 3000, signal);
 
 // The runtime warning printed before anything is sent to api.anthropic.com.
 export function warnApiKey(what = "the narrative input (project labels, README/CLAUDE.md excerpts,\n            dependency names, commit subjects, sampled prompts)") {

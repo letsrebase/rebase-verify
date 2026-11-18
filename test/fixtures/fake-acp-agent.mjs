@@ -16,6 +16,8 @@
 //   FAKE_PRACTICES_BAD  "once" | "always": answer the first (or every) practices prompt with text that holds no JSON
 //   FAKE_CHATTER  with FAKE_SMART: put prose with stray braces before and after the JSON
 //   FAKE_PROMPT_LOG  path: append one JSON line per prompt text
+//   FAKE_TURN_LOG    path: append one JSON line {sessionId, model, mode} per prompt
+// Every session/new opens a fresh session (its own id, default model and mode).
 import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { spawn } from "node:child_process";
@@ -27,7 +29,7 @@ if (env.FAKE_GRANDCHILD) {
   writeFileSync(env.FAKE_GRANDCHILD, String(g.pid));
 }
 const list = (v) => (v ? v.split(",") : []);
-const state = { model: null, mode: null, params: null, cancel: null };
+const state = { model: null, mode: null, params: null, cancel: null, sessions: 0 };
 const models = list(env.FAKE_MODELS);
 const modes = list(env.FAKE_MODES);
 state.model = models[0] ?? null;
@@ -84,7 +86,9 @@ const app = acp.agent({ name: "fake-acp-agent" })
   .onRequest("session/new", async ({ params }) => {
     state.params = params;
     if (env.FAKE_AUTH === "new") throw new acp.RequestError(-32000, "Authentication required");
-    return { sessionId: "s1", configOptions: configOptions() };
+    state.model = models[0] ?? null;
+    state.mode = modes[0] ?? null;
+    return { sessionId: `s${++state.sessions}`, configOptions: configOptions() };
   })
   .onRequest("session/set_config_option", async ({ params }) => {
     if (params.configId === "model") state.model = params.value;
@@ -100,8 +104,9 @@ const app = acp.agent({ name: "fake-acp-agent" })
     if (env.FAKE_AUTH === "prompt") throw new acp.RequestError(-32000, "Authentication required");
     if (env.FAKE_AUTH === "details")
       throw new acp.RequestError(-32603, "Internal error", { details: "No model selected. Use /login" });
-    const update = (u) => client.notify("session/update", { sessionId: "s1", update: u });
+    const update = (u) => client.notify("session/update", { sessionId: params.sessionId, update: u });
     const promptText = params.prompt.map((b) => b.text ?? "").join("");
+    if (env.FAKE_TURN_LOG) appendFileSync(env.FAKE_TURN_LOG, JSON.stringify({ sessionId: params.sessionId, model: state.model, mode: state.mode }) + "\n");
     if (env.FAKE_PROMPT_LOG) appendFileSync(env.FAKE_PROMPT_LOG, JSON.stringify(promptText) + "\n");
     if (env.FAKE_EXIT === "prompt") {
       process.stderr.write("boom: died mid-turn\n");
@@ -122,7 +127,7 @@ const app = acp.agent({ name: "fake-acp-agent" })
     let answer = env.FAKE_ANSWER ?? "ok";
     if (env.FAKE_PERM) {
       const r = await client.request("session/request_permission", {
-        sessionId: "s1",
+        sessionId: params.sessionId,
         toolCall: { toolCallId: "p1", title: "x" },
         options: [
           { optionId: "allow", name: "Allow", kind: "allow_once" },

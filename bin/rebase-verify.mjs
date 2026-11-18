@@ -307,6 +307,9 @@ async function cmdGenerate() {
     const run = await runAgentStep(entry, { out, narrativeInput: narrativeInputFor(selected, enrichments, narrativeOptions) });
     if (run.practicesAnswers) writeFileSync(join(out, "practices.json"), JSON.stringify(run.practicesAnswers, null, 2));
     practices = run.practicesAnswers ? mergePracticesAnswers(out, codePractices, run.used) : codePractices;
+    // The counts are merged; the answers stay in practices-detail.json, so a later finalize
+    // never reads them as the slash command's.
+    rmSync(join(out, "practices.json"), { force: true });
     narrative = run.narrative;
     generatedBy = { narrative: run.used };
   } else {
@@ -316,6 +319,7 @@ async function cmdGenerate() {
       warn: () => warnApiKey(PRACTICES_WARN_WHAT),
     });
     practices = step === "written" ? mergePracticesAnswers(out, codePractices, API_KEY_PATH) : codePractices;
+    if (step === "written") rmSync(join(out, "practices.json"), { force: true });
 
     console.log(`[4/5] Narrative ...`);
     const generated = await generateNarrative(selected, enrichments, { overrideFile: flag("narrative-file"), ...narrativeOptions });
@@ -568,6 +572,8 @@ async function cmdSubmit() {
     process.exit(1);
   }
 }
+
+if (sub !== "generate" && (has("agent") || has("model"))) die("--agent and --model work with generate only.");
 
 const main = { generate: cmdGenerate, prepare: cmdPrepare, finalize: cmdFinalize, submit: cmdSubmit }[sub];
 main().catch((e) => { console.error("Error:", e.message); process.exit(1); });

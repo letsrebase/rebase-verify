@@ -8,9 +8,9 @@ import { MODEL, NARRATIVE_SYSTEM, anthropicCall, validateNarrative, warnApiKey }
 import { AgentAuthError, AgentStartError, ModelNotOfferedError, ToolUseError, startAgent } from "./acp.mjs";
 import { firstJsonObject } from "./json-answer.mjs";
 
-// Fixed at session start for agents that cannot take a system prompt per turn;
-// the turn's own instructions travel in the message itself, for every agent.
-const RUN_SYSTEM = "Do not use any tool. Answer only from the text in this message, and reply with the JSON object it asks for, nothing else.";
+// Fixed at session start for agents that take a system prompt there, and put in front of
+// every turn for the ones that do not; the turn's own instructions travel in the message.
+export const RUN_SYSTEM = "Do not use any tool. Answer only from the text in this message, and reply with the JSON object it asks for, nothing else.";
 
 const MAX_MODEL = 120;
 
@@ -31,8 +31,10 @@ const typed = (e) =>
  * `practicesAnswers` is null when there is no `practicesInput`. Typed failures
  * (ToolUseError, AgentAuthError, AgentStartError, ModelNotOfferedError with
  * `offered`, AbortError) are thrown as they are; any other failure names the agent.
+ * Every turn after the first runs in a new session on the same agent process, so
+ * no answer sees an earlier one. `start` replaces startAgent (tests).
  */
-export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal }) {
+export async function runWithAgent({ agent, model, narrativeInput, practicesInput, onStatus = () => {}, logFile, signal, start = startAgent }) {
   const label = agent.label ?? agent.id;
   const fail = (e) => {
     if (signal?.aborted) return e?.name === "AbortError" ? e : Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -63,9 +65,12 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
 
   if (agent.kind === "api") {
     if (model && model !== MODEL) throw Object.assign(new ModelNotOfferedError(model), { offered: [MODEL] });
-    const call = anthropicCall(process.env.ANTHROPIC_API_KEY);
+    const call = anthropicCall(process.env.ANTHROPIC_API_KEY, { signal });
     const out = await steps(
-      (system, user) => call({ system, user }),
+      (system, user) => {
+        if (signal?.aborted) throw fail(new Error("aborted"));
+        return call({ system, user });
+      },
       (step) => (step === "narrative" ? warnApiKey() : warnApiKey(PRACTICES_WARN_WHAT)),
     );
     return { ...out, used: { agent: agent.id, model: MODEL } };
@@ -77,7 +82,7 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
   let runDir = null;
   let session = null;
   try {
-    session = await startAgent(agent.spec({ system: RUN_SYSTEM }), {
+    session = await start(agent.spec({ system: RUN_SYSTEM }), {
       logFile,
       signal,
       onEvent: (e) => {
@@ -93,12 +98,20 @@ export async function runWithAgent({ agent, model, narrativeInput, practicesInpu
       }
     }
     const used = { agent: agent.id, model: boundModel(model ?? session.currentModel) };
-    const out = await steps(async (system, user) => (await session.prompt(`${system}\n\n${user}`)).text);
+    let turns = 0;
+    const out = await steps(async (system, user) => {
+      if (turns++ > 0) await session.renew();
+      return (await session.prompt(`${system}\n\n${user}`, { system: RUN_SYSTEM })).text;
+    });
     return { ...out, used };
   } catch (e) {
     throw fail(e);
   } finally {
-    await session?.close();
+    try {
+      await session?.close();
+    } catch {
+      // the transcript cleanup below still runs, and the run's own error stays
+    }
     if (runDir) {
       let removed = [];
       try {

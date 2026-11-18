@@ -61,9 +61,9 @@ test("specs", () => {
   assert.ok(!cl.env.includes("ANTHROPIC_API_KEY") && !omp.env.includes("ANTHROPIC_API_KEY"));
   const cx = get("codex").spec({ system: "S" });
   assert.equal(cx.mode, "read-only");
-  const sp = cx.sessionParams("S").systemPrompt;
-  assert.equal(sp.mode, "append");
-  assert.match(sp.content[0].text, /Do not use any tool\. Answer only from the text in this message\.$/);
+  assert.equal(cx.systemPromptVia, "param");
+  assert.equal(cx.system, "S");
+  assert.ok(!("sessionParams" in cx));
   assert.deepEqual(get("claude-code").cleanup("/x/y"), []);
   for (const a of AGENTS) assert.ok(a.loginHint && a.installHint, a.id);
 });

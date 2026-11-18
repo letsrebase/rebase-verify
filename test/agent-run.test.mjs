@@ -7,9 +7,9 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { runWithAgent } from "../src/agents/run.mjs";
-import { AgentAuthError, ModelNotOfferedError, ToolUseError } from "../src/agents/acp.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { RUN_SYSTEM, runWithAgent } from "../src/agents/run.mjs";
+import { AgentAuthError, ModelNotOfferedError, ToolUseError, startAgent } from "../src/agents/acp.mjs";
 import { AGENT_RUN_MARKER } from "../src/agent-run.mjs";
 import { MODEL, NARRATIVE_SYSTEM } from "../src/profile-llm.mjs";
 import { PRACTICES_BATCH, practicesPrompt } from "../src/practices-llm.mjs";
@@ -88,12 +88,87 @@ test("one session writes the narrative, then classifies every batch, and names w
   assert.deepEqual(result.used, { agent: "fake-agent", model: "m2" });
   assert.equal(log.filter((l) => l.dir === "out" && l.msg?.method === "initialize").length, 1, "one session for both steps");
   assert.equal(prompts.length, 1 + Math.ceil(12 / PRACTICES_BATCH));
-  assert.ok(prompts[0].startsWith(NARRATIVE_SYSTEM), "the narrative turn opens with the narrative prompt");
+  assert.ok(prompts[0].startsWith(`${RUN_SYSTEM}\n\n${NARRATIVE_SYSTEM}`), "the narrative turn opens with the narrative prompt");
   assert.ok(prompts[0].endsWith(JSON.stringify(narrativeInput)));
-  assert.ok(prompts[1].startsWith(practicesPrompt(MODEL_PRACTICE_CANDIDATES)));
+  assert.ok(prompts[1].startsWith(`${RUN_SYSTEM}\n\n${practicesPrompt(MODEL_PRACTICE_CANDIDATES)}`));
   assert.deepEqual(JSON.parse(prompts[1].split("\n").pop()).practices, ids);
   assert.deepEqual(status.map((s) => s.step), ["narrative", "practices", "practices"]);
   assert.deepEqual(status.slice(1).map((s) => [s.batch, s.total]), [[1, 2], [2, 2]]);
+});
+
+test("every turn runs in its own session with the chosen model, and the inline prompt opens with the run system", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-turns-"));
+  const turns = join(dir, "turns.jsonl");
+  try {
+    const { prompts, error } = await run({ FAKE_MODELS: "m1,m2", FAKE_TURN_LOG: turns }, { model: "m2" });
+    assert.ifError(error);
+    const seen = readFileSync(turns, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(seen.length, 3);
+    assert.equal(new Set(seen.map((t) => t.sessionId)).size, 3, "no turn sees an earlier one");
+    assert.ok(seen.every((t) => t.model === "m2"));
+    for (const p of prompts) assert.ok(p.startsWith(RUN_SYSTEM + "\n\n"), "the no-tools line reaches inline agents");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a retried batch also runs in a new session", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-turns-"));
+  const turns = join(dir, "turns.jsonl");
+  try {
+    const { error } = await run({ FAKE_PRACTICES_BAD: "once", FAKE_TURN_LOG: turns });
+    assert.ifError(error);
+    const seen = readFileSync(turns, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(seen.length, 4);
+    assert.equal(new Set(seen.map((t) => t.sessionId)).size, 4);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a failing close does not stop the transcript cleanup or hide the typed error", async () => {
+  const calls = [];
+  const agent = fakeEntry({ cleanup: (dir) => (calls.push(dir), []) });
+  const start = async (spec, opts) => {
+    const session = await startAgent(spec, opts);
+    const close = session.close;
+    session.close = async () => {
+      await close();
+      throw new Error("close failed");
+    };
+    return session;
+  };
+  const { error } = await run({ FAKE_TOOL: "1", FAKE_SMART: "" }, { agent, start });
+  assert.ok(error instanceof ToolUseError, String(error));
+  assert.equal(calls.length, 1);
+});
+
+test("the API entry stops on an aborted signal before calling, and hands the signal to fetch", async () => {
+  const realFetch = globalThis.fetch;
+  const realError = console.error;
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    seen.push(init.signal);
+    return { ok: true, json: async () => ({ content: [{ type: "text", text: JSON.stringify({ summary: "S", cognitive: { narrative: "C" }, projects: [] }) }] }) };
+  };
+  console.error = () => {};
+  const api = { id: "anthropic-api", label: "Anthropic API", kind: "api", cleanup: () => [] };
+  try {
+    await withEnv({ ANTHROPIC_API_KEY: "sk-test" }, async () => {
+      const before = new AbortController();
+      before.abort();
+      await assert.rejects(runWithAgent({ agent: api, narrativeInput, practicesInput: null, signal: before.signal }), { name: "AbortError" });
+      assert.equal(seen.length, 0, "no request once aborted");
+      const live = new AbortController();
+      await runWithAgent({ agent: api, narrativeInput, practicesInput: null, signal: live.signal });
+      assert.equal(seen[0], live.signal);
+      const mid = new AbortController();
+      await assert.rejects(runWithAgent({ agent: api, narrativeInput, practicesInput: practicesInput(12), signal: mid.signal, onStatus: (s) => s.step === "practices" && s.batch === 1 && mid.abort() }), { name: "AbortError" });
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realError;
+  }
 });
 
 test("without --model the agent's current model is kept and recorded; with none offered it is null", async () => {
@@ -309,6 +384,8 @@ test("generate --agent runs the whole flow, writes the profile with both records
     assert.ok(model.every((i) => i.of === 1 && i.seen === 1));
     assert.deepEqual(assessStructure(c).issues.filter((i) => /classifiedBy|generatedBy/.test(i)), []);
     assert.ok(existsSync(t.out("profile.md")));
+    assert.ok(!existsSync(t.out("practices.json")), "the answers stay in the local detail file only");
+    assert.ok(existsSync(t.out("practices-detail.json")));
     assert.ok(readFileSync(t.out("agent-log.jsonl"), "utf8").includes('"cleanup"'));
     assert.deepEqual(readdirSync(t.tmpd).filter((n) => n.startsWith(AGENT_RUN_MARKER)), []);
   } finally {
@@ -423,6 +500,39 @@ test("finalize records the slash command for the narrative and the practices it 
     const by = { agent: "slash-command", model: null };
     assert.deepEqual(c.generatedBy, { narrative: by });
     assert.deepEqual(c.practices.classifiedBy, by);
+  } finally {
+    rmSync(t.tmp, { recursive: true, force: true });
+  }
+});
+
+test("the key path records the API as writer and classifier, and leaves no practices.json for a later finalize", () => {
+  const t = setup();
+  try {
+    const stub = pathToFileURL(fileURLToPath(new URL("./fixtures/stub-anthropic.mjs", import.meta.url))).href;
+    const r = t.go([], { ANTHROPIC_API_KEY: "sk-test", NODE_OPTIONS: `--import=${stub}` });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const by = { agent: "anthropic-api", model: MODEL };
+    const c = t.candidate();
+    assert.deepEqual(c.generatedBy, { narrative: by });
+    assert.deepEqual(c.practices.classifiedBy, by);
+    assert.ok(!existsSync(t.out("practices.json")));
+    assert.ok(existsSync(t.out("practices-detail.json")));
+  } finally {
+    rmSync(t.tmp, { recursive: true, force: true });
+  }
+});
+
+test("--agent and --model are for generate only", () => {
+  const t = setup();
+  try {
+    for (const sub of ["prepare", "finalize", "submit"]) {
+      for (const args of [["--agent", "test-agent"], ["--model", "m1"]]) {
+        const r = spawnSync(process.execPath, [BIN, sub, ...args], { cwd: join(t.tmp, "work"), encoding: "utf8", timeout: 60000, env: { ...process.env, HOME: join(t.tmp, "home"), USERPROFILE: join(t.tmp, "home"), REBASE_VERIFY_TEST_AGENT: FAKE } });
+        assert.equal(r.status, 2, `${sub} ${args[0]}: ${r.stdout}${r.stderr}`);
+        assert.match(r.stderr.trim(), /^--agent and --model work with generate only\.$/);
+      }
+    }
+    assert.ok(!existsSync(t.out("narrative-input.json")), "nothing was read");
   } finally {
     rmSync(t.tmp, { recursive: true, force: true });
   }

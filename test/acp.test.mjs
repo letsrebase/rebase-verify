@@ -292,5 +292,36 @@ test("sessionParams reach session/new", () =>
     assert.equal(created.msg.params.extra, 1);
   }));
 
+test("renew opens a fresh session on the same process with the chosen model and the mode re-applied", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "acp-renew-"));
+  const turns = join(dir, "turns.jsonl");
+  try {
+    const env = { FAKE_MODELS: "m1,m2", FAKE_MODES: "ask,read-only", FAKE_TURN_LOG: turns };
+    await run(env, spec(env, { mode: "read-only" }), {}, async (a, { logFile, events }) => {
+      await a.setModel("m2");
+      await a.prompt("one", {});
+      await a.renew();
+      assert.equal(a.currentModel, "m2");
+      await a.prompt("two", {});
+      await a.renew();
+      await a.prompt("three", {});
+      const seen = readFileSync(turns, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+      assert.equal(new Set(seen.map((t) => t.sessionId)).size, 3, "a new session each time");
+      for (const t of seen) assert.deepEqual([t.model, t.mode], ["m2", "read-only"]);
+      const sent = readFileSync(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((l) => l.dir === "out").map((l) => l.msg?.method);
+      assert.equal(sent.filter((m) => m === "initialize").length, 1, "one connection");
+      assert.equal(sent.filter((m) => m === "session/new").length, 3);
+      assert.equal(events.filter((e) => e.kind === "started").length, 1, "one process");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a tool seen in one session does not fail the next one after renew", () =>
+  run({ FAKE_TOOL: "1" }, null, {}, async (a) => {
+    await assert.rejects(a.prompt("x", {}), ToolUseError);
+  }));
+
 test("windowsCommandLine quotes args as one string", () =>
   assert.equal(windowsCommandLine("npx", ["-y", "pkg@1", "a b", 'q"x']), 'npx -y pkg@1 "a b" "q""x"'));

@@ -7,8 +7,6 @@ import { basename, join } from "node:path";
 import { AGENT_RUN_MARKER } from "../agent-run.mjs";
 import { MODEL } from "../profile-llm.mjs";
 
-const NO_TOOLS_INSTRUCTION = "Do not use any tool. Answer only from the text in this message.";
-
 const homeOf = (ctx = {}) => ctx.home ?? ctx.env?.HOME ?? ctx.env?.USERPROFILE ?? process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const envOf = (ctx = {}) => ctx.env ?? process.env;
 
@@ -251,9 +249,6 @@ export const AGENTS = [
       mode: "read-only",
       systemPromptVia: "param",
       system,
-      sessionParams: (text) => ({
-        systemPrompt: { mode: "append", content: [{ type: "text", text: `${text ?? ""}\n\n${NO_TOOLS_INSTRUCTION}`.trim() }] },
-      }),
     }),
     loginHint: "codex login",
     installHint: "install Codex from https://github.com/openai/codex",

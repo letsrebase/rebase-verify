@@ -253,25 +253,46 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
     if (spec.system && spec.systemPromptVia === "param")
       params.systemPrompt = { mode: "append", content: [{ type: "text", text: spec.system }] };
     if (Object.keys(meta).length) params._meta = meta;
-    let created;
-    try {
-      created = await call("session/new", params);
-    } catch (e) {
-      throw isAuthError(e) ? new AgentAuthError(e.message) : e;
-    }
-    sessionId = created.sessionId;
-
-    const configOptions = created.configOptions;
-    const modelEntry = configEntry(configOptions, "model");
-    const models = flattenOptions(modelEntry?.options).map((o) => ({ id: o.value, name: o.name ?? o.value }));
+    let modelEntry = null;
+    let chosenModel = null;
+    // session/new on the open connection (same cwd, meta and params), then the mode and the
+    // chosen model again: a new session starts from the agent's defaults.
+    const open = async () => {
+      let created;
+      try {
+        created = await call("session/new", params);
+      } catch (e) {
+        throw isAuthError(e) ? new AgentAuthError(e.message) : e;
+      }
+      sessionId = created.sessionId;
+      const configOptions = created.configOptions;
+      modelEntry = configEntry(configOptions, "model");
+      session.models = flattenOptions(modelEntry?.options).map((o) => ({ id: o.value, name: o.name ?? o.value }));
+      session.currentModel = modelEntry?.currentValue ?? null;
+      if (spec.mode) {
+        const modeEntry = configEntry(configOptions, "mode");
+        if (modeEntry && flattenOptions(modeEntry.options).some((o) => o.value === spec.mode))
+          await call("session/set_config_option", { sessionId, configId: modeEntry.id, value: spec.mode });
+        else await call("session/set_mode", { sessionId, modeId: spec.mode });
+      }
+      if (chosenModel) await session.setModel(chosenModel);
+    };
     const session = {
-      models,
-      currentModel: modelEntry?.currentValue ?? null,
+      models: [],
+      currentModel: null,
       async setModel(id) {
-        if (!modelEntry || !models.some((m) => m.id === id)) throw new ModelNotOfferedError(id);
+        if (!modelEntry || !session.models.some((m) => m.id === id)) throw new ModelNotOfferedError(id);
         await call("session/set_config_option", { sessionId, configId: modelEntry.id, value: id });
+        chosenModel = id;
         session.currentModel = id;
         emit({ kind: "model-set", model: id });
+      },
+      // A new session on the same process: the next turn sees nothing of the earlier ones.
+      async renew() {
+        pendingTrip = null;
+        seenTools.clear();
+        await open();
+        emit({ kind: "session-renewed", sessionId });
       },
       async prompt(text, { system } = {}) {
         if (pendingTrip) throw new ToolUseError(pendingTrip);
@@ -309,12 +330,7 @@ export async function startAgent(spec, { onEvent = () => {}, logFile, signal } =
       close,
     };
 
-    if (spec.mode) {
-      const modeEntry = configEntry(configOptions, "mode");
-      if (modeEntry && flattenOptions(modeEntry.options).some((o) => o.value === spec.mode))
-        await call("session/set_config_option", { sessionId, configId: modeEntry.id, value: spec.mode });
-      else await call("session/set_mode", { sessionId, modeId: spec.mode });
-    }
+    await open();
     return session;
   } catch (e) {
     await close();
