@@ -214,3 +214,53 @@ export function practicesBlock(items, { tz = DEFAULT_TZ } = {}) {
   if (!Array.isArray(items) || !items.length) return null;
   return { rubric: RUBRIC, timezone: tz, items };
 }
+
+const isPlain = (x) => x != null && typeof x === "object" && !Array.isArray(x);
+
+// The model's answers, keyed by the opaque sample id then by practice id: every
+// sampled session and every id present, booleans only, nothing else.
+export function validateModelAnswers(answers, sample, ids) {
+  if (!isPlain(answers)) return { ok: false, error: "the answers must be an object keyed by session id" };
+  const sessions = new Set(sample.map((s) => s.id));
+  for (const key of Object.keys(answers)) {
+    if (!sessions.has(key)) return { ok: false, error: `session ${key} is not in the sample` };
+  }
+  for (const id of sessions) {
+    const row = answers[id];
+    if (!isPlain(row)) return { ok: false, error: `session ${id} has no answers` };
+    for (const key of Object.keys(row)) {
+      if (!ids.includes(key)) return { ok: false, error: `session ${id}: "${key}" is not a practice to classify` };
+    }
+    for (const p of ids) {
+      if (!(p in row)) return { ok: false, error: `session ${id}: practice ${p} is missing` };
+      if (typeof row[p] !== "boolean") return { ok: false, error: `session ${id}: practice ${p} must be true or false` };
+    }
+  }
+  return { ok: true };
+}
+
+// Counts per model practice, as the code practices do: products and months are
+// those of the sessions where it was seen; `of` is the sessions classified.
+export function computeModelPractices(answers, sample, ids) {
+  if (!sample.length) return [];
+  return ids.map((id) => {
+    const seen = sample.filter((s) => answers[s.id]?.[id] === true);
+    return {
+      id, method: "model", seen: seen.length, of: sample.length,
+      products: new Set(seen.map((s) => s.product)).size, months: new Set(seen.map((s) => s.month)).size,
+    };
+  });
+}
+
+// The per-session answers with the real session ids; local only, never sent.
+export function practicesDetail(answers, sample) {
+  return sample.map((s) => ({ session: s.session, date: s.date, product: s.product, answers: answers[s.id] }));
+}
+
+// Validates, then appends the model items after the code items in the one block.
+export function mergeModelPractices(codeBlock, answers, sample, ids, { tz = DEFAULT_TZ } = {}) {
+  const v = validateModelAnswers(answers, sample, ids);
+  if (!v.ok) throw new Error(v.error);
+  const items = [...(codeBlock?.items ?? []), ...computeModelPractices(answers, sample, ids)];
+  return { block: practicesBlock(items, { tz: codeBlock?.timezone ?? tz }), detail: practicesDetail(answers, sample) };
+}

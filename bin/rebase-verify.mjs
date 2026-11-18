@@ -52,7 +52,7 @@ import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
 import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
-import { computeCodePractices, practicesBlock } from "../src/practices.mjs";
+import { computeCodePractices, mergeModelPractices, practicesBlock } from "../src/practices.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -187,7 +187,7 @@ function writeProfile(out, profile) {
 // opaque ids back to real sessions and is never sent.
 function writePracticesInput(out, parsed, tz) {
   // A stale sample from an earlier run must never be read by finalize.
-  for (const f of ["practices-input.json", "practices-sample.json"]) rmSync(join(out, f), { force: true });
+  for (const f of ["practices-input.json", "practices-sample.json", "practices-detail.json"]) rmSync(join(out, f), { force: true });
   const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
   const practices = (shared.practices ?? []).filter((p) => p.method === "model");
   const files = practicesFiles(parsed, { tz, practices });
@@ -264,6 +264,31 @@ async function cmdPrepare() {
   console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  rebase-verify finalize`);
 }
 
+// The model's answers, when the person's model wrote out/practices.json: checked
+// against the sample file written at prepare (never resampled), then merged into
+// the block. A bad or unreadable file stops the step; nothing is saved.
+function mergePracticesAnswers(out, codeBlock) {
+  const answersFile = join(out, "practices.json");
+  if (!existsSync(answersFile)) return codeBlock;
+  const sampleFile = join(out, "practices-sample.json");
+  const fail = (msg) => { console.error(`${msg} Fix it, or delete ${OUT_DIR}/practices.json to leave the model practices out.`); process.exit(2); };
+  const read = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return undefined; } };
+  const sample = read(sampleFile);
+  if (!Array.isArray(sample)) fail(`Missing or unreadable ${sampleFile}: run rebase-verify prepare again.`);
+  const answers = read(answersFile);
+  if (answers === undefined) fail(`${answersFile} is not valid JSON.`);
+  const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
+  const ids = (shared.practices ?? []).filter((p) => p.method === "model").map((p) => p.id);
+  try {
+    const { block, detail } = mergeModelPractices(codeBlock, answers, sample, ids, { tz: tzFlag });
+    writeFileSync(join(out, "practices-detail.json"), JSON.stringify(detail, null, 2));
+    console.log(`Merged the model's answers for ${sample.length} sessions (per-session detail in ${OUT_DIR}/practices-detail.json, local only).`);
+    return block;
+  } catch (e) {
+    return fail(`${answersFile}: ${e.message}.`);
+  }
+}
+
 async function cmdFinalize() {
   const out = outDir();
   console.log(`\nrebase-verify finalize\n`);
@@ -273,6 +298,7 @@ async function cmdFinalize() {
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources } = await loadProfileInputs(out);
+  const merged = mergePracticesAnswers(out, practices);
   const { narrative } = await generateNarrative(selected, enrichments, {
     overrideFile: narrativeFile,
     trajectory,
@@ -284,7 +310,7 @@ async function cmdFinalize() {
     compactionSummaries: parsed.compactionSummaries,
   });
   writeProfile(out, assembleWithGroundedness({
-    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources,
+    projects, narrative, fingerprint, forensics, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices: merged, sources,
     manifestHash: fingerprint.manifest.bundleHash,
   }));
 }
