@@ -32,13 +32,13 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync, mkdirSync, rmSync } from "node:fs";
 import { readClaudeCode } from "../src/adapters/claude-code.mjs";
 import { readAllSources } from "../src/sources.mjs";
 import { computeFingerprint } from "../src/fingerprint.mjs";
 import { computeForensics } from "../src/forensics.mjs";
 import { buildDigest } from "../src/digest.mjs";
-import { buildPracticesInput, sampleSessions, sampleFile } from "../src/practices-sample.mjs";
+import { practicesFiles } from "../src/practices-sample.mjs";
 import { enrichRepo, describeContextGaps } from "../src/enrich.mjs";
 import { generateNarrative } from "../src/profile-llm.mjs";
 import { selectRepresentatives, assembleProfile, renderMarkdown, summarizeSources } from "../src/profile.mjs";
@@ -186,14 +186,15 @@ function writeProfile(out, profile) {
 // there is something to read. Both files stay local; the sample file maps the
 // opaque ids back to real sessions and is never sent.
 function writePracticesInput(out, parsed, tz) {
+  // A stale sample from an earlier run must never be read by finalize.
+  for (const f of ["practices-input.json", "practices-sample.json"]) rmSync(join(out, f), { force: true });
   const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
   const practices = (shared.practices ?? []).filter((p) => p.method === "model");
-  if (!practices.length) return;
-  const sample = sampleSessions(parsed, { tz });
-  if (!sample.length) return;
-  writeFileSync(join(out, "practices-input.json"), JSON.stringify(buildPracticesInput(parsed, { tz, practices, sample }), null, 2));
-  writeFileSync(join(out, "practices-sample.json"), JSON.stringify(sampleFile(sample), null, 2));
-  console.log(`Wrote ${OUT_DIR}/practices-input.json (${sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
+  const files = practicesFiles(parsed, { tz, practices });
+  if (!files) return;
+  writeFileSync(join(out, "practices-input.json"), JSON.stringify(files.input, null, 2));
+  writeFileSync(join(out, "practices-sample.json"), JSON.stringify(files.sample, null, 2));
+  console.log(`Wrote ${OUT_DIR}/practices-input.json (${files.sample.length} sessions of your own messages, for your model to classify) and ${OUT_DIR}/practices-sample.json (local only).`);
 }
 
 async function cmdGenerate() {

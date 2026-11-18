@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { MAX_SESSIONS, personMessages, sampleSessions, buildPracticesInput, sampleFile } from "../src/practices-sample.mjs";
+import { MAX_SESSIONS, personMessages, sampleSessions, buildPracticesInput, sampleFile, practicesFiles } from "../src/practices-sample.mjs";
 
 const msgs = (n, text = (i) => `message ${i}`, ts = "2026-05-01T10:00:00.000Z") =>
   Array.from({ length: n }, (_, i) => ({ role: "user", ts, textRedacted: text(i) }));
@@ -82,20 +82,40 @@ test("an empty or all-ineligible log gives an empty sessions list", () => {
   assert.deepEqual(buildPracticesInput({ sessions: [sess("a", "p", "2026-05", 1)] }, { tz: "UTC" }).sessions, []);
 });
 
-test("bin writes no input file while no model practice is published", () => {
+test("sessions with no timestamp are left out", () => {
+  const undated = { source: "claude-code", sessionId: "u", cwdRaw: "", cwdRedacted: "/h/p/a", messages: [{ role: "user", textRedacted: "a" }, { role: "user", textRedacted: "b" }] };
+  assert.deepEqual(sampleSessions({ sessions: [undated] }, { tz: "UTC" }), []);
+});
+
+test("practicesFiles: null with no model practice or no sampled session, else input and sample", () => {
+  const parsed = { sessions: [sess("r1", "p", "2026-05")] };
+  const practices = [{ id: "p", definition: "d" }];
+  assert.equal(practicesFiles(parsed, { tz: "UTC", practices: [] }), null);
+  assert.equal(practicesFiles({ sessions: [] }, { tz: "UTC", practices }), null);
+  const f = practicesFiles(parsed, { tz: "UTC", practices });
+  assert.deepEqual(f.input.sessions.map((s) => s.id), ["s01"]);
+  assert.equal(f.sample[0].session, "r1");
+});
+
+test("bin writes no input file while no model practice is published, and removes stale ones", () => {
   const home = mkdtempSync(join(tmpdir(), "pr-"));
-  const root = join(home, "projects", "-h-p-x");
   const cwd = mkdtempSync(join(tmpdir(), "pr-cwd-"));
-  const lines = ["a", "b", "c"].map((t, i) => JSON.stringify({ type: "user", sessionId: "s", cwd: "/h/p/x", timestamp: `2026-05-01T10:0${i}:00.000Z`, message: { role: "user", content: t } }));
-  return import("node:fs").then(({ mkdirSync, writeFileSync }) => {
+  try {
+    const root = join(home, "projects", "-h-p-x");
     mkdirSync(root, { recursive: true });
+    const lines = ["a", "b", "c"].map((t, i) => JSON.stringify({ type: "user", sessionId: "s", cwd: "/h/p/x", timestamp: `2026-05-01T10:0${i}:00.000Z`, message: { role: "user", content: t } }));
     writeFileSync(join(root, "s.jsonl"), lines.join("\n") + "\n");
+    mkdirSync(join(cwd, "out"));
+    writeFileSync(join(cwd, "out", "practices-sample.json"), "[]");
+    writeFileSync(join(cwd, "out", "practices-input.json"), "{}");
     const bin = new URL("../bin/rebase-verify.mjs", import.meta.url).pathname;
-    const r = spawnSync(process.execPath, [bin, "prepare", "--root", join(home, "projects"), "--no-opencode"], { cwd, encoding: "utf8", timeout: 120000 });
+    const r = spawnSync(process.execPath, [bin, "prepare", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.ok(existsSync(join(cwd, "out", "narrative-input.json")));
     assert.ok(!existsSync(join(cwd, "out", "practices-input.json")));
     assert.ok(!existsSync(join(cwd, "out", "practices-sample.json")));
-    assert.ok(readFileSync(join(cwd, "out", "narrative-input.json"), "utf8").length > 0);
-  });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });

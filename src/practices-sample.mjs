@@ -35,13 +35,13 @@ export function sampleSessions(parsed, { tz = DEFAULT_TZ } = {}) {
   const dayKey = dayKeyFor(tz);
   const products = new Map(); // product -> Map(month -> entries[])
   for (const { session, meta } of eachSession(parsed, tz)) {
-    if (ownTexts(session).length < 2) continue;
+    if (!meta.month || ownTexts(session).length < 2) continue; // no time: cannot be placed in a month
     let ts = null;
     for (const m of session.messages) {
       const t = m?.ts ? Date.parse(m.ts) : NaN;
       if (Number.isFinite(t)) { ts = t; break; }
     }
-    const entry = { session: meta.id, date: ts === null ? null : dayKey(ts), product: meta.product, month: meta.month ?? "", raw: session };
+    const entry = { session: meta.id, date: dayKey(ts), product: meta.product, month: meta.month, raw: session };
     if (!products.has(meta.product)) products.set(meta.product, new Map());
     const months = products.get(meta.product);
     if (!months.has(entry.month)) months.set(entry.month, []);
@@ -82,4 +82,12 @@ export function buildPracticesInput(parsed, { tz = DEFAULT_TZ, practices = [], s
 // The local-only sample file: the real session behind each opaque id.
 export function sampleFile(sample) {
   return sample.map(({ id, session, date, product, month }) => ({ id, session, date, product, month }));
+}
+
+// What to write, or null when nothing is published or nothing was sampled.
+export function practicesFiles(parsed, { tz = DEFAULT_TZ, practices = [] } = {}) {
+  if (!practices.length) return null;
+  const sample = sampleSessions(parsed, { tz });
+  if (!sample.length) return null;
+  return { input: buildPracticesInput(parsed, { tz, practices, sample }), sample: sampleFile(sample) };
 }
