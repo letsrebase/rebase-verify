@@ -28,10 +28,10 @@
     "node": ">=20.12"
   },
   "license": "MIT",
-  "homepage": "https://github.com/letsrebase/rebase-verify",
+  "homepage": "https://github.com/letsrebase/verify",
   "repository": {
     "type": "git",
-    "url": "https://github.com/letsrebase/rebase-verify.git"
+    "url": "https://github.com/letsrebase/verify.git"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "2.8.0",

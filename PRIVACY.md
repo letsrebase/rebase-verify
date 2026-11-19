@@ -106,8 +106,8 @@ If you prefer not to use the tool (for any reason, including unease about the AI
 
 ## 10. Changes
 
-We will update this document if we change what the tool does. The previous versions stay in the [git history](https://github.com/letsrebase/rebase-verify/commits/main/PRIVACY.md).
+We will update this document if we change what the tool does. The previous versions stay in the [git history](https://github.com/letsrebase/verify/commits/main/PRIVACY.md).
 
 ---
 
-*If anything here is unclear or you spot a mistake, please [open an issue](https://github.com/letsrebase/rebase-verify/issues) or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).*
+*If anything here is unclear or you spot a mistake, please [open an issue](https://github.com/letsrebase/verify/issues) or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).*

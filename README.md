@@ -2,7 +2,7 @@
 
 > `rebase-verify`: show rebase how you work, and get verified for it.
 
-Credit where it is due: this is [`letsrebase/rebase-verify`](https://github.com/letsrebase/rebase-verify), rebase's fork of [apply-new](https://github.com/Play-New/apply-new) by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. If approved, the profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project (written by your own model, reviewed by you); its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. `submit` sends to rebase, never to Play New. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
+Credit where it is due: this is [`letsrebase/verify`](https://github.com/letsrebase/verify), rebase's fork of [apply-new](https://github.com/Play-New/apply-new) by Play New, released under the MIT licence. rebase adapts it so that freelancers in the rebase community can send their work profile to the rebase hub, where a person reviews it before it counts for anything. If approved, the profile earns «Verificato da rebase» and companies rebase works with can see its summary, its domains of work and the sectors of its representative projects, next to your name and your card, for example in the talent cloud or when rebase proposes you for a project (written by your own model, reviewed by you); its text is also used to write your anonymous card. It is kept at most 12 months and you can delete it from your member area. `submit` sends to rebase, never to Play New. Changes that fit the original go back upstream as pull requests; how the two are kept apart is in [AGENTS.md](AGENTS.md).
 
 A CV is a list of what you did, formatted for keyword scans. For work that happens inside agent logs, it's the wrong surface. The signal that matters (how you decompose, how you verify, what you do when the model misunderstands) already exists in your agent sessions, whichever CLI they happen to live in. A resume can't see it.
 
@@ -29,8 +29,8 @@ npx @letsrebase/verify submit --yes
 The second way is the Claude Code slash command from a clone. It uses your Claude Code session as the agent and records `slash-command` as the agent in the profile (a narrative you wrote by hand and ran through `prepare` and `finalize` is labelled `slash-command` too):
 
 ```
-git clone https://github.com/letsrebase/rebase-verify
-cd rebase-verify
+git clone https://github.com/letsrebase/verify
+cd verify
 claude
 > /rebase-verify
 ```
@@ -176,7 +176,7 @@ You decide which projects rebase sees, so the tool can't see what's missing. Log
 
 The four model practices come from your own model reading your own messages: you can steer your agent or edit the answers file, and the hub cannot recheck them. Agent-written text is skipped only where the logs mark it (Claude Code sub-agent briefs, task notifications, compaction summaries, opencode child sessions); a session another tool's agent drove (a dispatched or headless run) can still be read as if you typed it, since the logs cannot always tell.
 
-If you spot something we should change, [open an issue](https://github.com/letsrebase/rebase-verify/issues).
+If you spot something we should change, [open an issue](https://github.com/letsrebase/verify/issues).
 
 ## Commands
 

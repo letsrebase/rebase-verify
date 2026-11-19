@@ -1,6 +1,6 @@
 # AGENTS.md: working on rebase-verify
 
-`letsrebase/rebase-verify` is rebase's fork of
+`letsrebase/verify` is rebase's fork of
 [Play-New/apply-new](https://github.com/Play-New/apply-new), the MIT-licensed CLI by Play
 New that turns a person's coding-agent logs into a private, redacted work profile. rebase
 uses it so that freelancers can send that profile to the rebase hub, where a person (an
@@ -35,7 +35,7 @@ original.
 
 Until 2026-11-18 the fork had no runtime dependencies and CI ran `npm test` on a bare checkout. It now ships on npm as `@letsrebase/verify` (Lorenzo's call 2026-11-18), runs with `npx @letsrebase/verify` and drives coding agents over ACP from an interactive wizard, so it has exactly two pinned runtime dependencies, `@clack/prompts` and `@agentclientprotocol/sdk`, and every CI leg runs `npm ci` before `npm test`. Do not add a third; agent adapters are started with `npx -y <pkg>@<pinned version>`, never installed as dependencies. Commit `package-lock.json`.
 
-The package lives under the `@letsrebase` npm scope so that every tool rebase gives the community sits under one owner (Lorenzo's call 2026-11-19). The command it installs stays `rebase-verify`, the name of the repository, the slash command and the User-Agent: a bare `verify` would be too generic on a PATH.
+Names follow one rule (Lorenzo's call 2026-11-19): inside a namespace that is only ours, the short name; where the name lands among other people's tools, the prefixed one. So the repository is `letsrebase/verify` (renamed from `rebase-verify`, earlier `work-profile`; GitHub redirects both) and the npm package `@letsrebase/verify`, while the command it installs is `rebase-verify` and the slash command `/rebase-verify`, since a bare `verify` would be too generic on a PATH or in someone's list of commands. The User-Agent stays `rebase-verify`.
 
 ## Remotes and syncing
 
@@ -60,7 +60,7 @@ REB-1132 is decided (`docs/design/DECISIONS.md` of `letsrebase/rebase`, 2026-11-
 
 The texts a freelancer reads (`README.md`, `PRIVACY.md`, `SECURITY.md`,
 `.claude/commands/rebase-verify.md`) and the links in `package.json` name rebase as the
-recipient and point at `letsrebase/rebase-verify`. A change to what `submit` sends or keeps
+recipient and point at `letsrebase/verify`. A change to what `submit` sends or keeps
 changes those texts in the same commit, so that no freelancer is shown a promise of the
 wrong recipient.
 
