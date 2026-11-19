@@ -292,9 +292,14 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
         if (!models.some((m) => m.id === flags.model)) return await fail(Object.assign(new ModelNotOfferedError(flags.model), { offered: models.map((m) => m.id) }));
         model = flags.model;
       } else if (models.length) {
+        const names = models.map((o) => o.name ?? o.id);
         const m = await ui.select({
           message: "Which model?",
-          options: models.map((o) => ({ value: o.id, label: o.name ?? o.id, hint: o.id === session.currentModel ? "current" : undefined })),
+          options: models.map((o, i) => {
+            const dup = names.filter((n) => n === names[i]).length > 1;
+            const hint = [o.id === session.currentModel ? "current" : null, dup ? o.id : null].filter(Boolean).join(" · ");
+            return { value: o.id, label: names[i], hint: hint || undefined };
+          }),
           initialValue: session.currentModel ?? models[0].id,
         });
         if (await cancelled(m)) return 130;

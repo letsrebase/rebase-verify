@@ -496,3 +496,12 @@ test("SIGHUP stops the run like SIGTERM, and the exit net restores the cursor", 
   assert.equal(await p, 130);
   assert.equal(proc.listenerCount("SIGHUP"), 0);
 });
+
+test("models that share a display name show their id as the hint", async () => {
+  const ui = fakeUi();
+  const models = [{ id: "a/haiku", name: "Claude Haiku 4.5" }, { id: "b/haiku", name: "Claude Haiku 4.5" }, { id: "c/opus", name: "Claude Opus" }];
+  const { deps } = fakeDeps({ startAgent: async () => ({ models, currentModel: "b/haiku", close: async () => {} }) });
+  await run(ui, deps);
+  const modelSel = kinds(ui, "select").find((c) => c[1].message === "Which model?");
+  assert.deepEqual(modelSel[1].options.map((o) => o.hint), ["a/haiku", "current · b/haiku", undefined]);
+});
