@@ -9,7 +9,7 @@ sign-in and intake endpoints that receive submissions.
 
 **Please do not open a public issue for security problems.**
 
-- Preferred: [GitHub private vulnerability reporting](https://github.com/letsrebase/rebase-verify/security/advisories/new)
+- Preferred: [GitHub private vulnerability reporting](https://github.com/letsrebase/verify/security/advisories/new)
   (Security tab → Report a vulnerability).
 - Or email **ciao@letsrebase.com** with subject `SECURITY: rebase-verify`.
 
@@ -29,5 +29,5 @@ Credit in the fix's release notes is yours if you want it.
 
 ## Supported versions
 
-The `main` branch. The tool is run from a fresh clone by design, so fixes land on
-`main` and there are no maintained release lines.
+The latest version of `@letsrebase/verify` on npm and the `main` branch. Fixes land on
+`main` and ship as a new version; there are no maintained release lines.

@@ -143,7 +143,7 @@ async function loadOptional(load) {
     return await load();
   } catch (e) {
     if (e?.code === "ERR_MODULE_NOT_FOUND" && /@clack\/prompts|@agentclientprotocol/.test(e.message)) {
-      die("Run it with npx rebase-verify, or run npm ci in this folder first.");
+      die("Run it with npx @letsrebase/verify, or run npm ci in this folder first.");
     }
     throw e;
   }

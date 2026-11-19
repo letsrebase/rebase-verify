@@ -31,7 +31,7 @@ The narrative is written under hard constraints: no proper names, evidence-based
 
 The short prose in your profile is generated in one of three ways, and they differ in what leaves your machine **before** submit:
 
-The main way to run the tool is `npx rebase-verify`, where a coding agent you choose writes the narrative (see 2b). The slash command below is the second way.
+The main way to run the tool is `npx @letsrebase/verify`, where a coding agent you choose writes the narrative (see 2b). The slash command below is the second way.
 
 - **Slash command path (the second way):** from a clone of the repository, the `/rebase-verify` slash command runs inside your own Claude Code session. The narrative input never goes anywhere your ordinary Claude usage doesn't already go. Fully local until submit.
 - **Manual path:** `prepare` writes the narrative input to a local file; you hand-write `narrative.json` and run `finalize`. Nothing leaves your machine until submit. An explicit `--narrative-file` takes precedence over an API key for the narrative only; the practices sample is still sent if the key is set and you run `generate`.
@@ -41,7 +41,7 @@ The name-stripping described in section 2 (no repository names, no client names 
 
 ## 2b. The coding agent you choose
 
-`npx rebase-verify` (and `generate --agent <id>`) lets a coding agent you pick write the narrative and classify the model practices. You choose the agent and the model; rebase does not.
+`npx @letsrebase/verify` (and `generate --agent <id>`) lets a coding agent you pick write the narrative and classify the model practices. You choose the agent and the model; rebase does not.
 
 - **What the agent's model provider receives.** The narrative input: project labels, README and CLAUDE.md excerpts, lines you added to CLAUDE.md or README over time, dependency names, commit subjects, sampled prompts, topics you researched and up to six compaction summaries (see 2a for the sizes). And the practices sample (up to 60 sessions, 12 of your own messages each, 600 characters each, redacted), under that provider's own terms. rebase never receives it. It leaves your machine before submit.
 - **Downloads.** The adapters for Claude Code (`@agentclientprotocol/claude-agent-acp`) and Codex (`@agentclientprotocol/codex-acp`) are downloaded from npm with npx when you pick them.
@@ -106,8 +106,8 @@ If you prefer not to use the tool (for any reason, including unease about the AI
 
 ## 10. Changes
 
-We will update this document if we change what the tool does. The previous versions stay in the [git history](https://github.com/letsrebase/rebase-verify/commits/main/PRIVACY.md).
+We will update this document if we change what the tool does. The previous versions stay in the [git history](https://github.com/letsrebase/verify/commits/main/PRIVACY.md).
 
 ---
 
-*If anything here is unclear or you spot a mistake, please [open an issue](https://github.com/letsrebase/rebase-verify/issues) or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).*
+*If anything here is unclear or you spot a mistake, please [open an issue](https://github.com/letsrebase/verify/issues) or write to [ciao@letsrebase.com](mailto:ciao@letsrebase.com).*

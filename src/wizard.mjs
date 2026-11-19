@@ -1,4 +1,4 @@
-// The interactive path of `npx rebase-verify`: read the sources, choose an
+// The interactive path of `npx @letsrebase/verify`: read the sources, choose an
 // agent and a model, consent, run, show the profile, offer to submit. It holds
 // decisions and copy only; every step that touches the logs, the agents or
 // the disk is injected, and the bin passes the same functions the sub-commands
@@ -384,7 +384,7 @@ export async function runWizard({ ui, deps, flags = {}, out, proc = process, now
         message: "What next?",
         options: [
           { value: "submit", label: "Send it to rebase now" },
-          { value: "exit", label: "Exit", hint: "send later with: npx rebase-verify submit --yes" },
+          { value: "exit", label: "Exit", hint: "send later with: npx @letsrebase/verify submit --yes" },
         ],
         initialValue: "exit",
       });

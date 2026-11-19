@@ -232,13 +232,13 @@ test("README leads with npx and has the agent section, the flags and the local l
   const how = readme.indexOf("## How it goes");
   const which = readme.indexOf("## Which agent writes and classifies");
   assert.ok(youllNeed > 0 && how > youllNeed && which > how);
-  assert.ok(readme.slice(how, which).indexOf("npx rebase-verify") < readme.slice(how, which).indexOf("git clone"), "npx must come before the clone");
+  assert.ok(readme.slice(how, which).indexOf("npx @letsrebase/verify") < readme.slice(how, which).indexOf("git clone"), "npx must come before the clone");
   assert.ok(readme.slice(how, which).includes("slash-command"));
   const section = readme.slice(which, readme.indexOf("## Sources"));
   for (const t of ["oh-my-pi", "Claude Code", "Codex", "--agent", "--model", "--yes", "agent-log.jsonl", "claude-agent-acp", "codex-acp", "generatedBy.narrative", "practices.classifiedBy"]) {
     assert.ok(section.includes(t), `README agent section lacks ${t}`);
   }
-  assert.ok(readme.includes("`npx rebase-verify` | on a terminal, the wizard"), "Commands table lacks the wizard row");
+  assert.ok(readme.includes("`npx @letsrebase/verify` | on a terminal, the wizard"), "Commands table lacks the wizard row");
   assert.ok(/claude-opus-4-7 through the API prompt/.test(readme), "gate section must say whose figures these are");
 });
 
@@ -251,7 +251,7 @@ test("PRIVACY discloses the chosen agent's provider, the npm adapters, the local
 });
 
 test("the slash command says npx is the main way and records slash-command", () => {
-  assert.ok(command.includes("npx rebase-verify") && command.includes("`slash-command`"));
+  assert.ok(command.includes("npx @letsrebase/verify") && command.includes("`slash-command`"));
 });
 
 test("the omp registry label is oh-my-pi", async () => {
