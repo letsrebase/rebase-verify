@@ -308,7 +308,7 @@ export function readOpencodeDb(dbPath = defaultOpencodeDb()) {
         ingestMessage(session, m, parts, acc);
       }
 
-      files.push({ relPath: `opencode-db/session/${info.id}`, sha256: h.digest("hex"), bytes, lines: records, malformed });
+      files.push({ relPath: `opencode-db/session/${info.id}`, sha256: h.digest("hex"), bytes, lines: records, malformed, cwdRaw: session.cwdRaw });
       byId.set(session.sessionId, session);
       sessions.push(session);
     }
@@ -381,7 +381,7 @@ export function readOpencodeJson(root = defaultOpencodeRoot()) {
     for (const { m, parts } of msgs) ingestMessage(session, m, parts, acc);
 
     const buf = Buffer.concat(chunks);
-    files.push({ relPath: `opencode/session/${info.id}`, sha256: sha256(buf), bytes: buf.length, lines: records, malformed });
+    files.push({ relPath: `opencode/session/${info.id}`, sha256: sha256(buf), bytes: buf.length, lines: records, malformed, cwdRaw: session.cwdRaw });
     byId.set(session.sessionId, session);
     sessions.push(session);
   }

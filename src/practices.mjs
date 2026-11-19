@@ -209,10 +209,11 @@ export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
 }
 
 // The block as the profile carries it: the rubric id and the zone the months
-// were bucketed in travel with the counts. No items, no block.
-export function practicesBlock(items, { tz = DEFAULT_TZ } = {}) {
+// were bucketed in travel with the counts. No items, no block. `classifiedBy`
+// ({ agent, model }) names who read the sessions for the model items.
+export function practicesBlock(items, { tz = DEFAULT_TZ, classifiedBy } = {}) {
   if (!Array.isArray(items) || !items.length) return null;
-  return { rubric: RUBRIC, timezone: tz, items };
+  return { rubric: RUBRIC, timezone: tz, items, ...(classifiedBy ? { classifiedBy } : {}) };
 }
 
 const isPlain = (x) => x != null && typeof x === "object" && !Array.isArray(x);
@@ -258,9 +259,14 @@ export function practicesDetail(answers, sample) {
 }
 
 // Validates, then appends the model items after the code items in the one block.
-export function mergeModelPractices(codeBlock, answers, sample, ids, { tz = DEFAULT_TZ } = {}) {
+// `classifiedBy` is recorded only when model items were added.
+export function mergeModelPractices(codeBlock, answers, sample, ids, { tz = DEFAULT_TZ, classifiedBy } = {}) {
   const v = validateModelAnswers(answers, sample, ids);
   if (!v.ok) throw new Error(v.error);
-  const items = [...(codeBlock?.items ?? []), ...computeModelPractices(answers, sample, ids)];
-  return { block: practicesBlock(items, { tz: codeBlock?.timezone ?? tz }), detail: practicesDetail(answers, sample) };
+  const model = computeModelPractices(answers, sample, ids);
+  const items = [...(codeBlock?.items ?? []), ...model];
+  return {
+    block: practicesBlock(items, { tz: codeBlock?.timezone ?? tz, classifiedBy: model.length ? classifiedBy : undefined }),
+    detail: practicesDetail(answers, sample),
+  };
 }

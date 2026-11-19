@@ -292,6 +292,7 @@ async function main(argv) {
       opencode: { root: flag("opencode-root"), disabled: has("no-opencode"), json: has("opencode-json") },
       codex: { root: flag("codex-root"), disabled: has("no-codex") },
       pi: { root: flag("pi-root"), disabled: has("no-pi") },
+      omp: { root: flag("omp-root"), disabled: has("no-omp") },
       cursor: { root: flag("cursor-root"), disabled: has("no-cursor") },
       kimi: { root: flag("kimi-root"), disabled: has("no-kimi") },
     };

@@ -25,6 +25,19 @@ import { labelVocabulary } from "./digest.mjs";
 import { isValidTimezone } from "./days.mjs";
 import { RUBRIC, practicesArtifact } from "./practices-rules.mjs";
 
+// { agent, model } as the hub reads it: an agent id of 1-40 [a-z0-9-], a model
+// name of 1-120 printable, non-blank characters, or null.
+const AGENT_ID_RE = /^[a-z0-9-]{1,40}$/;
+function provenanceIssue(v) {
+  // printable as Python reads it: no control, format or separator characters except the plain space
+  const sound = (s) => typeof s === "string" && [...s].length >= 1 && [...s].length <= 120 && s.trim() !== "" && !/[\p{C}\p{Z}]/u.test(s.replaceAll(" ", ""));
+  if (
+    v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).sort().join() === "agent,model" &&
+    typeof v.agent === "string" && AGENT_ID_RE.test(v.agent) && (v.model === null || sound(v.model))
+  ) return null;
+  return "must be { agent, model } with an agent of 1 to 40 characters [a-z0-9-] and a model that is null or 1 to 120 printable characters";
+}
+
 export function assessStructure(profile) {
   const issues = [];
   const projects = profile?.projects ?? [];
@@ -133,6 +146,19 @@ export function assessStructure(profile) {
   // Practices invariants (block is optional): a known rubric, ids and methods
   // from the published list, and counts that are possible given the profile.
   const pr = profile?.practices;
+  if (pr != null && typeof pr === "object" && "classifiedBy" in pr) {
+    const bad = provenanceIssue(pr.classifiedBy);
+    if (bad) issues.push(`practices.classifiedBy: ${bad}`);
+  }
+  if (profile != null && typeof profile === "object" && "generatedBy" in profile) {
+    const g = profile.generatedBy;
+    if (!g || typeof g !== "object" || Array.isArray(g) || Object.keys(g).join() !== "narrative") {
+      issues.push("generatedBy: must be an object with only a narrative entry { agent, model }");
+    } else {
+      const bad = provenanceIssue(g.narrative);
+      if (bad) issues.push(`generatedBy.narrative: ${bad}`);
+    }
+  }
   if (pr != null) {
     const known = new Map(practicesArtifact().practices.map((x) => [x.id, x.method]));
     if (pr.rubric !== RUBRIC) issues.push(`practices.rubric is "${pr.rubric}" but this tool counts against "${RUBRIC}"`);

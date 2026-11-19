@@ -184,7 +184,7 @@ export function summarizeSources(parsed) {
 
 // --- assemble ----------------------------------------------------------------
 
-export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources }) {
+export function assembleProfile({ contact, projects, narrative, fingerprint, forensics, manifestHash, trajectory, groundedness, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, generatedBy }) {
   const froms = projects.map((p) => p.from).filter(Boolean).sort();
   const tos = projects.map((p) => p.to).filter(Boolean).sort();
   const selected = projects.filter((p) => p.selected);
@@ -207,6 +207,8 @@ export function assembleProfile({ contact, projects, narrative, fingerprint, for
     // What was read, at what capture level — the profile's own honesty about
     // its inputs. Spread keeps the old shape byte-identical when absent.
     ...(sources?.length ? { sources } : {}),
+    // Who wrote the narrative ({ narrative: { agent, model } }), when known.
+    ...(generatedBy ? { generatedBy } : {}),
     summary: narrative?.summary || null,
     // Aggregate fields of work, derived by the LLM from per-product evidence.
     // Counts, not names: each entry is { label, products, sessions, note? }.

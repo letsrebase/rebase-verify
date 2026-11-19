@@ -55,6 +55,7 @@ import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { redactText, countRedactions } from "../redact.mjs";
 import { toPosix, walk } from "./claude-code.mjs";
+import { AGENT_RUN_MARKER } from "../agent-run.mjs";
 import { fallbackToolName } from "./tool-vocab.mjs";
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -95,18 +96,21 @@ const TOOL_MAP = {
   webfetch: "WebFetch",
   websearch: "WebSearch",
 };
-function mapTool(name) {
-  if (!name) return name;
-  if (TOOL_MAP[name]) return TOOL_MAP[name];
-  return fallbackToolName(name);
+function mapToolWith(map) {
+  return (name) => {
+    if (!name) return name;
+    if (map[name]) return map[name];
+    return fallbackToolName(name);
+  };
 }
+const piMapTool = mapToolWith(TOOL_MAP);
 
 // toolCall.arguments is normally an object, but real data has at least one
 // observed case of a non-object shape: a "Validation" call with
 // `arguments: []`. Guard so a malformed/empty-array arguments never throws
 // and just degrades to no path/cmd/q, same posture as codex's function_call
 // argument guard.
-function buildToolUse(id, name, rawArguments) {
+function buildToolUse(id, name, rawArguments, mapTool) {
   const args = rawArguments && typeof rawArguments === "object" && !Array.isArray(rawArguments) ? rawArguments : {};
   const mapped = mapTool(name);
   const path = toPosix(redactText(String(args.path || args.filePath || args.file_path || "")));
@@ -119,7 +123,7 @@ function buildToolUse(id, name, rawArguments) {
 // {type:"text", text}, {type:"toolCall", id, name, arguments}. Thinking text
 // and its signature are reduced to lengths only, exactly like Claude Code's
 // redacted-thinking blocks and codex's reasoning summaries — never stored.
-function reduceAssistantContent(content) {
+function reduceAssistantContent(content, mapTool) {
   const toolUses = [];
   let text = "";
   let thinkingChars = 0;
@@ -136,7 +140,7 @@ function reduceAssistantContent(content) {
           signatureChars += (b.thinkingSignature || "").length;
           break;
         case "toolCall":
-          toolUses.push(buildToolUse(b.id, b.name, b.arguments));
+          toolUses.push(buildToolUse(b.id, b.name, b.arguments, mapTool));
           break;
       }
     }
@@ -221,8 +225,8 @@ function sessionIdFromFilename(path) {
   return m ? m[1] : basename(path, ".jsonl");
 }
 
-const EMPTY = (root) => ({
-  source: "pi",
+const EMPTY = (root, source = "pi") => ({
+  source,
   root: root || null,
   files: [],
   sessions: [],
@@ -232,7 +236,14 @@ const EMPTY = (root) => ({
 });
 
 export function readPi(root) {
-  if (!root || !existsSync(root)) return EMPTY(root);
+  return readPiFormat(root, { source: "pi" });
+}
+
+// pi's on-disk format is shared by oh-my-pi (omp), a pi fork. The omp adapter
+// calls this with its own source label, tool-name mapper and file filter; real
+// pi goes through readPi above with the defaults, behaviour unchanged.
+export function readPiFormat(root, { source = "pi", mapTool = piMapTool, includeFile = () => true } = {}) {
+  if (!root || !existsSync(root)) return EMPTY(root, source);
 
   const files = [];
   const sessions = [];
@@ -243,6 +254,7 @@ export function readPi(root) {
   const projectDirs = new Set();
 
   for (const path of walk(root)) {
+    if (!includeFile(relative(root, path))) continue;
     const buf = readFileSync(path);
     const relPath = relative(root, path);
     const lines = buf.toString("utf8").split("\n").filter((l) => l.trim());
@@ -261,7 +273,7 @@ export function readPi(root) {
     projectDirs.add(dirName);
 
     const session = {
-      source: "pi",
+      source,
       sessionId: sessionIdFromFilename(path),
       projectLabel: "project-unknown",
       cwdRedacted: "",
@@ -362,7 +374,7 @@ export function readPi(root) {
             if (text === null) break; // fully framework-injected <file> dump: skip entirely
             emit("user", r, text);
           } else if (m.role === "assistant") {
-            const { text, thinkingChars, signatureChars, toolUses } = reduceAssistantContent(m.content);
+            const { text, thinkingChars, signatureChars, toolUses } = reduceAssistantContent(m.content, mapTool);
             emit("assistant", r, text, { thinkingChars, signatureChars, toolUses, usage: buildUsage(m.usage) });
           } else if (m.role === "toolResult") {
             const bytes = toolResultBytes(m.content);
@@ -381,15 +393,17 @@ export function readPi(root) {
     // present, even if the directory encodes a different path.
     if (!session.cwdRaw) {
       const decoded = decodeDirCwd(dirName);
-      if (decoded) setCwd(decoded);
+      // decodeDirCwd turns the marker's dashes into slashes, so a header-less
+      // transcript of one of our own runs keeps its encoded dir name instead.
+      if (decoded) setCwd(dirName.includes(AGENT_RUN_MARKER) ? dirName : decoded);
     }
 
-    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed });
+    files.push({ relPath, sha256: sha256(buf), bytes: statSync(path).size, lines: lines.length, malformed, cwdRaw: session.cwdRaw });
     sessions.push({ ...session, cliVersions: [...session.cliVersions], models: [...session.models] });
   }
 
   return {
-    source: "pi",
+    source,
     root,
     files,
     sessions,

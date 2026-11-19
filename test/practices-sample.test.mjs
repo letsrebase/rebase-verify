@@ -111,7 +111,7 @@ test("bin writes a fresh input and sample file and removes stale answers", () =>
     writeFileSync(join(cwd, "out", "practices-input.json"), "{}");
     writeFileSync(join(cwd, "out", "practices.json"), "{}");
     const bin = fileURLToPath(new URL("../bin/rebase-verify.mjs", import.meta.url));
-    const r = spawnSync(process.execPath, [bin, "prepare", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
+    const r = spawnSync(process.execPath, [bin, "prepare", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-omp", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.ok(existsSync(join(cwd, "out", "narrative-input.json")));
     assert.deepEqual(JSON.parse(readFileSync(join(cwd, "out", "practices-input.json"), "utf8")).sessions.map((x) => x.id), ["s01"]);

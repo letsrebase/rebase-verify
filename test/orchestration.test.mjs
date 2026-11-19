@@ -47,7 +47,7 @@ test("sessions with no source are bucketed, not dropped", () => {
 
 test("dispatch counts the executable position only — not args, paths, or REPLs", () => {
   const cmds = [
-    'aider --message "fix"', 'codex exec "do x"', "goose run", 'cursor-agent -p "check"', 'pi -p "check"', 'kimi -p "check"', // 6 real headless launchers
+    'aider --message "fix"', 'codex exec "do x"', "goose run", 'cursor-agent -p "check"', 'pi -p "check"', 'kimi -p "check"', 'omp -p "check"', 'omp --print "check"', // 8 real headless launchers
     "cd my-codex-tests",            // codex inside a hyphenated path — must NOT count
     "cat aider-notes.md",           // aider as an argument — must NOT count
     "pip install requests",         // pi as a PREFIX of pip — must NOT count (the `pi\s+` boundary)
@@ -58,8 +58,8 @@ test("dispatch counts the executable position only — not args, paths, or REPLs
     "ls -la", "python build.py",    // ordinary shell
   ];
   const d = buildDigest({ sessions: [sess("claude-code", "z", cmds)] });
-  // 6 launchers + the chained opencode run = 7; the path/arg/REPL cases are 0.
-  assert.equal(d.projects[0].orchestration.dispatchCommands, 7);
+  // 8 launchers + the chained opencode run = 9; the path/arg/REPL cases are 0.
+  assert.equal(d.projects[0].orchestration.dispatchCommands, 9);
 });
 
 test("in-session delegation is folded into the orchestration object (ask a)", () => {

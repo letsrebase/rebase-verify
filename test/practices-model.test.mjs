@@ -91,7 +91,7 @@ function finalizeWith(files) {
     writeFileSync(join(cwd, "out", "narrative.json"), "{}");
     for (const [n, c] of Object.entries(files)) writeFileSync(join(cwd, "out", n), c);
     const bin = fileURLToPath(new URL("../bin/rebase-verify.mjs", import.meta.url));
-    const r = spawnSync(process.execPath, [bin, "finalize", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
+    const r = spawnSync(process.execPath, [bin, "finalize", "--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-omp", "--no-cursor", "--no-kimi"], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
     return { r, candidate: existsSync(join(cwd, "out", "candidate.json")), detail: existsSync(join(cwd, "out", "practices-detail.json")) };
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -134,7 +134,7 @@ test("a published model item passes assessStructure; the one that failed the gat
 test("end to end: prepare writes the input and the sample, finalize merges the answers", () => {
   const home = mkdtempSync(join(tmpdir(), "pe-"));
   const cwd = mkdtempSync(join(tmpdir(), "pe-cwd-"));
-  const flags = ["--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-cursor", "--no-kimi"];
+  const flags = ["--root", join(home, "projects"), "--no-opencode", "--no-codex", "--no-pi", "--no-omp", "--no-cursor", "--no-kimi"];
   const run = (cmd) => spawnSync(process.execPath, [fileURLToPath(new URL("../bin/rebase-verify.mjs", import.meta.url)), cmd, ...flags], { cwd, encoding: "utf8", timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, "x") } });
   try {
     const root = join(home, "projects", "-h-p-x");
