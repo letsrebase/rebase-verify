@@ -87,7 +87,7 @@ test("--agent without node_modules prints one line and exits 2", () => {
     const bin = join(clone(tmp), "bin", "rebase-verify.mjs");
     const r = exec(bin, work, home, ["generate", "--agent", "omp", "--root", logs(tmp), ...FLAGS], { PATH: process.env.PATH });
     assert.equal(r.status, 2);
-    assert.equal(r.stderr.trim(), "Run it with npx rebase-verify, or run npm ci in this folder first.");
+    assert.equal(r.stderr.trim(), "Run it with npx @letsrebase/verify, or run npm ci in this folder first.");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

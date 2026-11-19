@@ -1,10 +1,13 @@
 {
-  "name": "rebase-verify",
+  "name": "@letsrebase/verify",
   "version": "0.1.0",
   "description": "Work profile: build a tamper-evident, PII-redacted work profile from your coding-agent logs and send it to rebase for review.",
   "type": "module",
   "bin": {
     "rebase-verify": "bin/rebase-verify.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "bin/",

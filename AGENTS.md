@@ -33,7 +33,9 @@ original.
 
 ## Runtime dependencies and CI
 
-Until 2026-11-18 the fork had no runtime dependencies and CI ran `npm test` on a bare checkout. It now ships on npm (`npx rebase-verify`, Lorenzo's call 2026-11-18) with an interactive wizard and coding agents driven over ACP, so it has exactly two pinned runtime dependencies, `@clack/prompts` and `@agentclientprotocol/sdk`, and every CI leg runs `npm ci` before `npm test`. Do not add a third; agent adapters are started with `npx -y <pkg>@<pinned version>`, never installed as dependencies. Commit `package-lock.json`.
+Until 2026-11-18 the fork had no runtime dependencies and CI ran `npm test` on a bare checkout. It now ships on npm as `@letsrebase/verify` (Lorenzo's call 2026-11-18), runs with `npx @letsrebase/verify` and drives coding agents over ACP from an interactive wizard, so it has exactly two pinned runtime dependencies, `@clack/prompts` and `@agentclientprotocol/sdk`, and every CI leg runs `npm ci` before `npm test`. Do not add a third; agent adapters are started with `npx -y <pkg>@<pinned version>`, never installed as dependencies. Commit `package-lock.json`.
+
+The package lives under the `@letsrebase` npm scope so that every tool rebase gives the community sits under one owner (Lorenzo's call 2026-11-19). The command it installs stays `rebase-verify`, the name of the repository, the slash command and the User-Agent: a bare `verify` would be too generic on a PATH.
 
 ## Remotes and syncing
 
