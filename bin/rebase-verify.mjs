@@ -62,6 +62,7 @@ import { computeDistribution } from "../src/distribution.mjs";
 import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
 import { computeCodePractices, mergeModelPractices, practicesBlock, recordedPracticesTz } from "../src/practices.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
+import { invocation } from "../src/invocation.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
 // as `node bin/rebase-verify.mjs`). Imports hoist and evaluate before this line
@@ -126,6 +127,8 @@ try {
 // practices-sample.json, practices.json, practices-detail.json, agent-log.jsonl,
 // candidate.json, profile.md) lands in ./out, never in the repo root.
 const OUT_DIR = "out";
+// How to run this tool again, as the person started it (npx, an installed bin, a clone).
+const CMD = invocation();
 const outPath = () => join(process.cwd(), OUT_DIR);
 // Created only once logs were found. A `*` .gitignore inside keeps every file in it out of a commit.
 const ensureOut = () => {
@@ -306,7 +309,7 @@ function writeProfile(out, profile, { print = true } = {}) {
   if (!print) return;
   console.log(md);
   console.log(`Saved: ${OUT_DIR}/candidate.json + ${OUT_DIR}/profile.md`);
-  console.log(`To send it to rebase when ready:  rebase-verify submit`);
+  console.log(`To send it to rebase when ready:  ${CMD} submit`);
 }
 
 // What the agent run adds to the profile: the answers merged into the practices block, who
@@ -382,7 +385,7 @@ async function cmdGenerate() {
       writeFileSync(join(out, "narrative-input.json"), JSON.stringify(generated.input, null, 2));
       console.log(`      no narrative yet (no API key, no --narrative-file).`);
       console.log(`      From a clone, inside Claude Code:  /rebase-verify   (writes ${OUT_DIR}/narrative.json and finalizes)`);
-      console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  rebase-verify finalize`);
+      console.log(`      Manual:  write ${OUT_DIR}/narrative.json, then  ${CMD} finalize`);
       return;
     }
     if (generated.source === "api") generatedBy = { narrative: API_KEY_PATH };
@@ -424,7 +427,7 @@ async function cmdPrepare() {
   });
   writeFileSync(join(out, "narrative-input.json"), JSON.stringify(input, null, 2));
   console.log(`Wrote ${OUT_DIR}/narrative-input.json.`);
-  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  rebase-verify finalize`);
+  console.log(`Next: write ${OUT_DIR}/narrative.json (rules in the slash command), then  ${CMD} finalize`);
 }
 
 // The model's answers, when the person's model wrote out/practices.json: checked
@@ -438,7 +441,7 @@ function mergePracticesAnswers(out, codeBlock, classifiedBy) {
   const fail = (msg) => { console.error(`${msg} Fix it, or delete ${OUT_DIR}/practices.json to leave the model practices out.`); process.exit(2); };
   const read = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return undefined; } };
   const sample = read(sampleFile);
-  if (!Array.isArray(sample)) fail(`Missing or unreadable ${sampleFile}: run rebase-verify prepare again.`);
+  if (!Array.isArray(sample)) fail(`Missing or unreadable ${sampleFile}: run ${CMD} prepare again.`);
   const answers = read(answersFile);
   if (answers === undefined) fail(`${answersFile} is not valid JSON.`);
   const shared = JSON.parse(readFileSync(new URL("../share/practices.json", import.meta.url), "utf8"));
@@ -457,7 +460,7 @@ async function cmdFinalize() {
   console.log(`\nrebase-verify finalize\n`);
   const narrativeFile = flag("narrative-file", join(outPath(), "narrative.json"));
   if (!existsSync(narrativeFile)) {
-    console.error(`Missing ${narrativeFile}. Run rebase-verify prepare first, then write ${OUT_DIR}/narrative.json.`);
+    console.error(`Missing ${narrativeFile}. Run ${CMD} prepare first, then write ${OUT_DIR}/narrative.json.`);
     process.exit(2);
   }
   const { parsed, fingerprint, forensics, projects, selected, enrichments, trajectory, aiRelationship, agenticLiteracy, intensity, distribution, techUsage, practices, sources, out } = await loadProfileInputs();
@@ -488,7 +491,7 @@ async function cmdSubmit({ yes = false } = {}) {
     console.log(`(using ./candidate.json from an older run, new runs write to ${OUT_DIR}/)`);
   }
   if (!existsSync(profilePath)) {
-    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  rebase-verify generate`);
+    console.error(`No ${OUT_DIR}/candidate.json yet. Generate the profile first:  ${CMD} generate`);
     process.exit(2);
   }
   const profile = JSON.parse(readFileSync(profilePath, "utf8"));
@@ -506,7 +509,7 @@ async function cmdSubmit({ yes = false } = {}) {
   console.log(`Controller: Rebase S.r.l. (VAT IT 14971460960). Details: https://letsrebase.com/privacy and PRIVACY.md.`);
   console.log(`NOT sent: raw logs, local repo context, third-party proper names.`);
   console.log(`Repository names (repoLabel) are stripped from the payload before it leaves your machine.`);
-  console.log(`Inspect the exact outgoing payload:  rebase-verify submit --dry-run`);
+  console.log(`Inspect the exact outgoing payload:  ${CMD} submit --dry-run`);
 
   // Pre-flight groundedness: how much of the prose is anchored in the data.
   // Recomputed on the file as it is NOW, not trusted from the embedded score.
@@ -565,9 +568,9 @@ async function cmdSubmit({ yes = false } = {}) {
       console.log(`  Claude Code prunes sessions older than its cleanup period (~30 days by default),`);
       console.log(`  and the oldest part of your window aged out after the profile was generated.`);
       console.log(`  Nothing is wrong with what you did: the numbers are just stale.`);
-      console.log(`  Fix: regenerate now and submit right away (rebase-verify generate, or re-run /rebase-verify).`);
+      console.log(`  Fix: regenerate now and submit right away (${CMD} generate, or re-run /rebase-verify).`);
     } else {
-      console.log(`  If your logs were pruned since generation, regenerate (rebase-verify generate).`);
+      console.log(`  If your logs were pruned since generation, regenerate (${CMD} generate).`);
     }
   } else {
     console.log(`  structured data is internally consistent and matches your logs`);
@@ -578,15 +581,15 @@ async function cmdSubmit({ yes = false } = {}) {
     for (const b of blockers) {
       if (b.kind === "consistency") {
         console.error(`\nConsistency check failed (${b.count} issue${b.count > 1 ? "s" : ""}). Submission blocked.`);
-        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (${CMD} generate) or pass --force to bypass.`);
         console.error(`Note: the intake re-checks groundedness and these invariants server-side.`);
       } else if (b.kind === "groundedness-unscored") {
         console.error(`\nGroundedness could not be scored: the prose has too few checkable anchors for the screen to run. Submission blocked.`);
-        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (${CMD} generate) or pass --force to bypass.`);
         console.error(`Note: the intake flags unscoreable prose server-side as well.`);
       } else if (b.kind === "groundedness-low") {
         console.error(`\nGroundedness is low (${b.score}%). Submission blocked.`);
-        console.error(`Regenerate the profile (rebase-verify generate) or pass --force to bypass.`);
+        console.error(`Regenerate the profile (${CMD} generate) or pass --force to bypass.`);
       }
     }
   };
@@ -608,7 +611,7 @@ async function cmdSubmit({ yes = false } = {}) {
   }
 
   if (!(yes || has("yes"))) {
-    console.log(`\nTo confirm:  rebase-verify submit --yes`);
+    console.log(`\nTo confirm:  ${CMD} submit --yes`);
     return;
   }
   if (blockers.length) {
