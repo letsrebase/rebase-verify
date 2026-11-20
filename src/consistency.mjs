@@ -23,7 +23,7 @@
 import { bandFor, monthSpan } from "./tech-usage.mjs";
 import { labelVocabulary } from "./digest.mjs";
 import { isValidTimezone } from "./days.mjs";
-import { RUBRIC, practicesArtifact } from "./practices-rules.mjs";
+import { CODE_PRACTICES, RUBRIC, practicesArtifact } from "./practices-rules.mjs";
 
 // { agent, model } as the hub reads it: an agent id of 1-40 [a-z0-9-], a model
 // name of 1-120 printable, non-blank characters, or null.
@@ -232,6 +232,10 @@ export function submitBlockers({ issues = [], groundedness = null, force = false
 // .timezone })) — never the machine zone, or a candidate who generated with
 // --tz Europe/Rome and submits from a CI box would be flagged for the bucketing
 // difference, not for any real excess.
+//
+// opts.practices: the code practices recounted from the same logs in the zone the
+// practices block RECORDED (computeCodePractices(parsed, { tz })), null when no
+// session could show any of them. Left undefined, the recount is skipped.
 export function assessAgainstLogs(profile, digestProjects, opts = {}) {
   const issues = [];
   const warnings = [];
@@ -349,6 +353,27 @@ export function assessAgainstLogs(profile, digestProjects, opts = {}) {
       if ((Number(c.months) || 0) > fitting) excess(`techUsage.${c.name}: claims ${c.months} months up to ${c.lastMonth}, logs re-derive ${fitting}`);
       for (const k of ["sessions", "products"]) {
         if ((Number(c[k]) || 0) > d[k]) warnings.push(`techUsage.${c.name}: claims ${k === "sessions" ? c[k] + " sessions" : c[k] + " products"}, logs now re-derive ${d[k]} (detection reads repos as they are now)`);
+      }
+    }
+  }
+
+  // Code practices, same one-directional gate: every count only grows with
+  // ongoing use, so a claimed seen, of, products or months above the recount is
+  // pruning or a hand edit. Like dispatch detection, the counting rules are
+  // matcher-derived, so a tool update that narrows them shrinks the recount on
+  // unchanged logs; the remedy is the same: regenerate. The model practices are
+  // the person's model reading a sample, which no recount can repeat: they stay
+  // under the structure check alone. The rubric decides which ids are code, not
+  // the item's own method, which a hand edit could change.
+  const codeIds = new Set(CODE_PRACTICES.map((p) => p.id));
+  if (Array.isArray(profile?.practices?.items) && opts.practices !== undefined) {
+    const recounted = new Map((opts.practices?.items ?? []).map((x) => [x.id, x]));
+    for (const c of profile.practices.items) {
+      if (!codeIds.has(c?.id)) continue;
+      const d = recounted.get(c.id);
+      for (const k of ["seen", "of", "products", "months"]) {
+        const got = d?.[k] ?? 0;
+        if ((Number(c[k]) || 0) > got) excess(`practices.${c.id}: claims ${k} ${c[k]}, the logs recount ${got} (the counting rules may also have changed in an update: regenerate)`);
       }
     }
   }

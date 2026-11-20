@@ -60,7 +60,7 @@ import { computeAgenticLiteracy } from "../src/agentic-literacy.mjs";
 import { computeIntensity } from "../src/intensity.mjs";
 import { computeDistribution } from "../src/distribution.mjs";
 import { computeTechUsage, recordedTechUsageTz } from "../src/tech-usage.mjs";
-import { computeCodePractices, mergeModelPractices, practicesBlock } from "../src/practices.mjs";
+import { computeCodePractices, mergeModelPractices, practicesBlock, recordedPracticesTz } from "../src/practices.mjs";
 import { DEFAULT_TZ } from "../src/days.mjs";
 
 // Friendly Node floor (package.json `engines` is advisory only when invoked
@@ -545,7 +545,8 @@ async function cmdSubmit({ yes = false } = {}) {
     const digest = buildDigest(parsed, { tz: techTz });
     const intensity = computeIntensity(parsed, { tz: profile.intensity?.timezone || DEFAULT_TZ });
     const techUsage = computeTechUsage(digest.projects, { tz: techTz });
-    const logs = assessAgainstLogs(profile, digest.projects, { intensity, techUsage });
+    const practices = computeCodePractices(parsed, { tz: recordedPracticesTz(profile) });
+    const logs = assessAgainstLogs(profile, digest.projects, { intensity, techUsage, practices });
     issues.push(...logs.issues);
     excessClaims = logs.excessClaims || 0;
     for (const w of logs.warnings) console.log(`  ~ ${w}`);
