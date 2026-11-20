@@ -4,7 +4,7 @@
 // been": a session whose log lacks a field a practice needs (see `needs` in
 // practices-rules.mjs), or whose adapter cannot show it (ADAPTERS_WITHOUT), is
 // left out of that denominator, never counted as "not seen".
-import { DEFAULT_TZ, monthKeyFor } from "./days.mjs";
+import { DEFAULT_TZ, isValidTimezone, monthKeyFor } from "./days.mjs";
 import { isEphemeral, repoKey, splitTopLevel, stripHeredocs } from "./digest.mjs";
 import {
   ADAPTERS_WITHOUT, CODE_PRACTICES, EDIT_TOOLS as EDIT_TOOL_NAMES, PLAN_TOOLS as PLAN_TOOL_NAMES, RUBRIC,
@@ -206,6 +206,13 @@ export function computeCodePractices(parsed, { tz = DEFAULT_TZ } = {}) {
     return { id: p.id, method: p.method, seen: a.seen, of: a.of, products: a.products.size, months: a.months.size };
   });
   return items.length ? { items } : null;
+}
+
+// The zone a submit recounts the code practices in: the one the block recorded,
+// never the machine's, so the recount measures the data and not the bucketing.
+export function recordedPracticesTz(profile) {
+  const tz = profile?.practices?.timezone;
+  return isValidTimezone(tz) ? tz : DEFAULT_TZ;
 }
 
 // The block as the profile carries it: the rubric id and the zone the months
