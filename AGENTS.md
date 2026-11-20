@@ -37,6 +37,8 @@ Until 2026-11-18 the fork had no runtime dependencies and CI ran `npm test` on a
 
 Names follow one rule (Lorenzo's call 2026-11-19): inside a namespace that is only ours, the short name; where the name lands among other people's tools, the prefixed one. So the repository is `letsrebase/verify` (renamed from `rebase-verify`, earlier `work-profile`; GitHub redirects both) and the npm package `@letsrebase/verify`, while the command it installs is `rebase-verify` and the slash command `/rebase-verify`, since a bare `verify` would be too generic on a PATH or in someone's list of commands. The User-Agent stays `rebase-verify`.
 
+A release is two steps. A pull request bumps `version` in `package.json` and `package-lock.json` (`npm version <x.y.z> --no-git-tag-version`) and merges on green CI; then a `v<x.y.z>` tag pushed on that commit of `main` runs `.github/workflows/publish.yml`, which checks that the tag names the version and sits on `main`, runs `npm ci` and `npm test`, and publishes. npm trusts that workflow by file name (trusted publishing over OIDC, set up 2026-11-20, REB-1152), so no npm token exists and nobody publishes from a laptop; every version carries a provenance attestation. Renaming the workflow file, or moving the package to another repository, breaks publishing until the trusted publisher on npmjs.com is changed to match.
+
 ## Remotes and syncing
 
 ```
