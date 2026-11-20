@@ -1,6 +1,6 @@
 {
   "name": "@letsrebase/verify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Work profile: build a tamper-evident, PII-redacted work profile from your coding-agent logs and send it to rebase for review.",
   "type": "module",
   "bin": {
@@ -31,7 +31,7 @@
   "homepage": "https://github.com/letsrebase/verify",
   "repository": {
     "type": "git",
-    "url": "https://github.com/letsrebase/verify.git"
+    "url": "git+https://github.com/letsrebase/verify.git"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "2.8.0",

@@ -8,11 +8,11 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const bin = fileURLToPath(new URL("../bin/rebase-verify.mjs", import.meta.url));
 const pkg = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
 
-test("package version is 0.1.0 and --version / -v print it", () => {
-  assert.equal(pkg.version, "0.1.0");
+test("--version and -v print the package version", () => {
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
   for (const f of ["--version", "-v"]) {
     const out = execFileSync(process.execPath, [bin, f], { encoding: "utf8" });
-    assert.equal(out.trim(), "0.1.0");
+    assert.equal(out.trim(), pkg.version);
   }
 });
 
